@@ -127,13 +127,21 @@ void calc_week_start_date(const char* semester_start, int week_num,
 int date_in_week_range(const char* date, const char* semester_start,
                        int start_week, int end_week);
 
-/* ========== MD5加密 ========== */
+/* ========== 凯撒密码加密 ========== */
 
 /*
- * 计算字符串的MD5哈希值
- * input: 输入字符串
- * output: 输出32位十六进制MD5密文（需预先分配33字节空间）
+ * 凯撒密码加密
+ * 将字符串中每个字符按shift偏移量移位
+ * 字母和数字循环移位，其他字符不变
+ * input: 明文字符串
+ * shift: 偏移量(1-25)
+ * output: 密文字符串（需预先分配与input相同长度+1的空间）
  */
-void md5_hash(const char* input, char* output);
+void caesar_encrypt(const char* input, int shift, char* output);
+
+/*
+ * 凯撒密码解密（偏移量取反即可）
+ */
+void caesar_decrypt(const char* input, int shift, char* output);
 
 #endif /* UTILS_H */

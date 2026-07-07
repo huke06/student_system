@@ -1,7 +1,7 @@
 /*
  * utils.c - 工具函数实现
  * 包含：字符串处理、ID校验、密码生成、成绩计算、排课冲突、
- *        周次日期推算等后端核心逻辑
+ *        周次日期推算、凯撒加密与解密等后端核心逻辑
  */
 
 #include <stdio.h>
@@ -473,4 +473,84 @@ int date_in_week_range(const char* date, const char* semester_start,
     end_offset=(end_week-1)*7+6;
 
     return (date_offset>=start_offset && date_offset<=end_offset);
+}
+
+/* ================================================================ */
+/*                    凯撒密码加密                                    */
+/* ================================================================ */
+
+/*
+ * 凯撒密码加密
+ * 字母：A-Z / a-z 循环移位
+ * 数字：0-9 循环移位
+ * 其他字符：保持不变
+ * shift: 偏移量，1-25
+ */
+void caesar_encrypt(const char* input, int shift, char* output)
+{
+    int i;
+    char ch;
+    int base, range;
+
+    /* 限定偏移量范围 */
+    shift=shift%26;
+    if(shift<0) shift+=26;
+
+    i=0;
+    while(input[i]!='\0') {
+        ch=input[i];
+
+        if(ch>='A' && ch<='Z') {
+            /* 大写字母 */
+            base='A'; range=26;
+            ch=(ch-base+shift)%range+base;
+        } else if(ch>='a' && ch<='z') {
+            /* 小写字母 */
+            base='a'; range=26;
+            ch=(ch-base+shift)%range+base;
+        } else if(ch>='0' && ch<='9') {
+            /* 数字 */
+            base='0'; range=10;
+            ch=(ch-base+shift)%range+base;
+        }
+        /* 其他字符保持不变 */
+
+        output[i]=ch;
+        i++;
+    }
+    output[i]='\0';
+}
+
+/*
+ * 凯撒密码解密
+ * 逐字符反向移位：原来+shift，现在-shift
+ */
+void caesar_decrypt(const char* input, int shift, char* output)
+{
+    int i;
+    char ch;
+    int base, range;
+
+    i=0;
+    while(input[i]!='\0') {
+        ch=input[i];
+
+        if(ch>='A' && ch<='Z') {
+            base='A'; range=26;
+            shift=shift%26;
+            ch=(ch-base-shift+range)%range+base;
+        } else if(ch>='a' && ch<='z') {
+            base='a'; range=26;
+            shift=shift%26;
+            ch=(ch-base-shift+range)%range+base;
+        } else if(ch>='0' && ch<='9') {
+            base='0'; range=10;
+            shift=shift%10;
+            ch=(ch-base-shift+range)%range+base;
+        }
+
+        output[i]=ch;
+        i++;
+    }
+    output[i]='\0';
 }

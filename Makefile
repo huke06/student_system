@@ -6,8 +6,8 @@ CFLAGS=-Wall -Wextra -I./include
 LDFLAGS=
 TARGET=edu_system.exe
 
-SRCS=src/main.c src/menu_admin.c src/menu_teacher.c src/menu_student.c src/utils.c src/md5.c src/logger.c
-OBJS=src/main.o src/menu_admin.o src/menu_teacher.o src/menu_student.o src/utils.o src/md5.o src/logger.o
+SRCS=src/main.c src/menu_admin.c src/menu_teacher.c src/menu_student.c src/utils.c src/logger.c
+OBJS=src/main.o src/menu_admin.o src/menu_teacher.o src/menu_student.o src/utils.o src/logger.o
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
@@ -31,8 +31,6 @@ src/menu_student.o: src/menu_student.c include/menu.h include/utils.h
 src/utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c src/utils.c -o src/utils.o
 
-src/md5.o: src/md5.c include/utils.h
-	$(CC) $(CFLAGS) -c src/md5.c -o src/md5.o
 
 src/logger.o: src/logger.c include/logger.h
 	$(CC) $(CFLAGS) -c src/logger.c -o src/logger.o

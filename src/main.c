@@ -112,15 +112,15 @@ static int login_flow(struct Session* session, int role)
         pwd[strcspn(pwd, "\n")]='\0';
     }
 
-    /* 将输入密码MD5加密 */
-    md5_hash(pwd, hash);
+    /* 将输入密码用凯撒密码加密(偏移量3) */
+    caesar_encrypt(pwd, 3, hash);
 
     /*
      * 密码验证（框架阶段：密码"123456"通过）
-     * md5("123456") = e10adc3949ba59abbe56e057f20f883e
+     * 凯撒偏移3: "123456" -> "456789"
      * 后续接入数据文件后改为从文件读取密文比对
      */
-    if(strcmp(hash, "e10adc3949ba59abbe56e057f20f883e")!=0) {
+    if(strcmp(hash, "456789")!=0) {
         printf("\n  [错误] 密码错误！\n");
         /* 记录登录失败日志 */
         {
