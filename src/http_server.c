@@ -1,6 +1,6 @@
 /*
- * http_server.c - HTTP服务器核心实现
- * Socket通信 / 请求解析 / URL参数处理 / 响应发送 / 路由分发
+ * http_server.c - HTTP服务器核心
+ * 路由表驱动 + 模板文件渲染
  */
 
 #include <stdio.h>
@@ -9,629 +9,293 @@
 #include "http_server.h"
 #include "page.h"
 
-/* ========== 请求解析 ========== */
+/* ===== 路由表条目 ===== */
+struct Route {
+    const char* method;       /* "GET" / "POST" */
+    const char* path;         /* URL路径 */
+    const char* tmpl;         /* HTML模板文件路径，NULL表示特殊处理 */
+    const char* active;       /* 侧边栏高亮路径，即path本身 */
+    int need_auth;            /* 是否需要登录验证 */
+    const char* allowed_role; /* 允许的角色："admin"/"teacher"/"student"/NULL */
+    int is_login;             /* 是否登录处理（特殊标记） */
+    int is_logout;            /* 是否退出登录 */
+};
 
 /*
- * 解析原始HTTP请求报文
- * 提取方法、路径、查询参数、请求体
+ * 路由表：所有URL映射集中定义
  */
+static const struct Route routes[]={
+    /* method  path                       template                     active          auth  role      login logout */
+    {"GET",   "/",                       "static/login.html",         "",             0,    NULL,     0,    0},
+    {"POST",  "/login",                  NULL,                        "",             0,    NULL,     1,    0},
+    {"GET",   "/logout",                 NULL,                        "",             0,    NULL,     0,    1},
+    /* 管理员 */
+    {"GET",   "/admin",                  "static/admin/home.html",           "/admin",               1, "admin", 0,0},
+    {"GET",   "/admin/student_mgr",      "static/admin/student_mgr.html",   "/admin/student_mgr",   1, "admin", 0,0},
+    {"GET",   "/admin/teacher_mgr",      "static/admin/teacher_mgr.html",   "/admin/teacher_mgr",   1, "admin", 0,0},
+    {"GET",   "/admin/admin_mgr",        "static/admin/admin_mgr.html",     "/admin/admin_mgr",     1, "admin", 0,0},
+    {"GET",   "/admin/select_config",    "static/admin/select_config.html", "/admin/select_config", 1, "admin", 0,0},
+    {"GET",   "/admin/select_force",     "static/admin/select_force.html",  "/admin/select_force",  1, "admin", 0,0},
+    {"GET",   "/admin/select_monitor",   "static/admin/select_monitor.html","/admin/select_monitor",1, "admin", 0,0},
+    {"GET",   "/admin/course_list",      "static/admin/course_list.html",   "/admin/course_list",   1, "admin", 0,0},
+    {"GET",   "/admin/course_edit",      "static/admin/course_edit.html",   "/admin/course_edit",   1, "admin", 0,0},
+    {"GET",   "/admin/course_delete",    "static/admin/course_delete.html", "/admin/course_delete", 1, "admin", 0,0},
+    {"GET",   "/admin/sys_semester",     "static/admin/sys_semester.html",  "/admin/sys_semester",  1, "admin", 0,0},
+    {"GET",   "/admin/sys_majors",       "static/admin/sys_majors.html",    "/admin/sys_majors",    1, "admin", 0,0},
+    /* 教师 */
+    {"GET",   "/teacher",                "static/teacher/home.html",         "/teacher",             1, "teacher", 0,0},
+    {"GET",   "/teacher/course_add",     "static/teacher/course_add.html",  "/teacher/course_add",  1, "teacher", 0,0},
+    {"GET",   "/teacher/course_edit",    "static/teacher/course_edit.html", "/teacher/course_edit", 1, "teacher", 0,0},
+    {"GET",   "/teacher/course_list",    "static/teacher/course_list.html", "/teacher/course_list", 1, "teacher", 0,0},
+    {"GET",   "/teacher/roster",         "static/teacher/roster.html",      "/teacher/roster",      1, "teacher", 0,0},
+    {"GET",   "/teacher/grade_input",    "static/teacher/grade_input.html", "/teacher/grade_input", 1, "teacher", 0,0},
+    {"GET",   "/teacher/grade_edit",     "static/teacher/grade_edit.html",  "/teacher/grade_edit",  1, "teacher", 0,0},
+    {"GET",   "/teacher/grade_stats",    "static/teacher/grade_stats.html", "/teacher/grade_stats", 1, "teacher", 0,0},
+    {"GET",   "/teacher/course_close",   "static/teacher/course_close.html","/teacher/course_close",1, "teacher", 0,0},
+    /* 学生 */
+    {"GET",   "/student",                "static/student/home.html",         "/student",             1, "student", 0,0},
+    {"GET",   "/student/my_info",        "static/student/my_info.html",     "/student/my_info",     1, "student", 0,0},
+    {"GET",   "/student/edit_info",      "static/student/edit_info.html",   "/student/edit_info",   1, "student", 0,0},
+    {"GET",   "/student/change_pwd",     "static/student/change_pwd.html",  "/student/change_pwd",  1, "student", 0,0},
+    {"GET",   "/student/course_select",  "static/student/course_select.html","/student/course_select",1,"student",0,0},
+    {"GET",   "/student/my_schedule",    "static/student/my_schedule.html", "/student/my_schedule", 1, "student", 0,0},
+    {"GET",   "/student/my_grades",      "static/student/my_grades.html",   "/student/my_grades",   1, "student", 0,0},
+    {"GET",   "/student/grade_stats",    "static/student/grade_stats.html", "/student/grade_stats", 1, "student", 0,0},
+    {"GET",   "/student/ai_analysis",    "static/student/ai_analysis.html", "/student/ai_analysis", 1, "student", 0,0},
+};
+
+#define ROUTE_COUNT (sizeof(routes)/sizeof(routes[0]))
+
+/* ===== 请求解析 ===== */
+
 void parse_http_request(const char* raw, struct HttpRequest* req)
 {
-    int i, j;
-    int len;
+    int i, j, len;
 
-    /* 初始化 */
-    req->method[0]='\0';
-    req->path[0]='\0';
-    req->query[0]='\0';
-    req->body[0]='\0';
+    req->method[0]='\0'; req->path[0]='\0';
+    req->query[0]='\0'; req->body[0]='\0';
     len=strlen(raw);
 
-    /* 1. 解析请求方法 */
+    /* 解析方法 */
     i=0;
-    while(i<len && raw[i]!=' ' && raw[i]!='\0') {
-        req->method[i]=raw[i];
-        i++;
-    }
+    while(i<len && raw[i]!=' ' && raw[i]!='\0') { req->method[i]=raw[i]; i++; }
     req->method[i]='\0';
-
-    /* 跳过空格 */
     while(i<len && raw[i]==' ') i++;
 
-    /* 2. 解析URL路径和查询参数 */
+    /* 解析路径 */
     j=0;
-    while(i<len && raw[i]!=' ' && raw[i]!='?' && raw[i]!='\0') {
-        req->path[j]=raw[i];
-        i++; j++;
-    }
+    while(i<len && raw[i]!=' ' && raw[i]!='?' && raw[i]!='\0')
+        { req->path[j]=raw[i]; i++; j++; }
     req->path[j]='\0';
 
-    /* 如果有?，解析查询参数 */
+    /* 解析查询参数 */
     if(raw[i]=='?') {
-        i++; /* 跳过? */
-        j=0;
-        while(i<len && raw[i]!=' ' && raw[i]!='\0') {
-            req->query[j]=raw[i];
-            i++; j++;
-        }
+        i++; j=0;
+        while(i<len && raw[i]!=' ' && raw[i]!='\0')
+            { req->query[j]=raw[i]; i++; j++; }
         req->query[j]='\0';
     }
+    if(strlen(req->path)==0) strcpy(req->path, "/");
 
-    if(strlen(req->path)==0) {
-        strcpy(req->path, "/");
-    }
-
-    /* 3. 提取POST请求体 */
+    /* POST请求体 */
     if(strcmp(req->method, "POST")==0) {
-        char* body_pos;
-        body_pos=strstr(raw, "\r\n\r\n");
-        if(body_pos != NULL) {
-            body_pos=body_pos+4;
-            strcpy(req->body, body_pos);
-        }
+        char* p=strstr(raw, "\r\n\r\n");
+        if(p!=NULL) strcpy(req->body, p+4);
     }
 }
 
-/* ========== URL解码 ========== */
+/* ===== URL/参数处理 ===== */
 
-/*
- * URL解码: %XX转字符, +转空格
- * 原地解码
- */
 void url_decode_str(char* str)
 {
-    int i, j;
-    char hex[3];
-    int code;
-
+    int i, j, code; char hex[3];
     i=0; j=0;
     while(str[i]!='\0') {
-        if(str[i]=='%' && str[i+1]!='\0' && str[i+2]!='\0') {
-            hex[0]=str[i+1];
-            hex[1]=str[i+2];
-            hex[2]='\0';
-            sscanf(hex, "%x", &code);
-            str[j]=(char)code;
-            i=i+3;
-        } else if(str[i]=='+') {
-            str[j]=' ';
-            i++;
-        } else {
-            str[j]=str[i];
-            i++;
-        }
+        if(str[i]=='%' && str[i+1] && str[i+2])
+            { hex[0]=str[i+1]; hex[1]=str[i+2]; hex[2]='\0';
+              sscanf(hex,"%x",&code); str[j]=(char)code; i+=3; }
+        else if(str[i]=='+') { str[j]=' '; i++; }
+        else { str[j]=str[i]; i++; }
         j++;
     }
     str[j]='\0';
 }
 
-/* ========== URL查询参数获取 ========== */
-
-/*
- * 从查询字符串中获取参数值
- * query格式: "key1=val1&key2=val2"
- */
 void get_query_param(const char* query, const char* key, char* value)
 {
-    char* pos;
-    char tmp[1024];
-    int key_len;
-    int j;
-
-    value[0]='\0';
-    key_len=strlen(key);
+    char* pos; char tmp[1024]; int kl, j;
+    value[0]='\0'; kl=strlen(key);
     strcpy(tmp, query);
-
     pos=strstr(tmp, key);
     if(pos==NULL) return;
-
-    pos=pos+key_len;
-    if(*pos=='=') pos++;
-
-    j=0;
-    while(*pos!='\0' && *pos!='&') {
-        value[j]=*pos;
-        pos++; j++;
-    }
+    pos+=kl; if(*pos=='=') pos++;
+    j=0; while(*pos && *pos!='&') { value[j]=*pos; pos++; j++; }
     value[j]='\0';
-
     url_decode_str(value);
 }
 
-/* ========== POST参数获取 ========== */
-
-/*
- * 从POST请求体获取参数值
- * body格式: "key1=val1&key2=val2"
- */
 void get_post_param_value(const char* body, const char* key, char* value)
 {
-    char* pos;
-    char tmp[4096];
-    int key_len;
-    int j;
-
-    value[0]='\0';
-    key_len=strlen(key);
-    strcpy(tmp, body);
-
-    pos=strstr(tmp, key);
-    if(pos==NULL) return;
-
-    pos=pos+key_len;
-    if(*pos=='=') pos++;
-
-    j=0;
-    while(*pos!='\0' && *pos!='&') {
-        value[j]=*pos;
-        pos++; j++;
-    }
-    value[j]='\0';
-
-    url_decode_str(value);
+    /* 复用相同逻辑 */
+    get_query_param(body, key, value);
 }
 
-/* ========== HTTP响应 ========== */
+/* ===== HTTP响应 ===== */
 
-/*
- * 发送HTTP响应
- */
-void send_http_response(SOCKET client, int status_code, const char* content_type,
-                        const char* body)
+void send_http_response(SOCKET client, int status_code,
+                        const char* content_type, const char* body)
 {
-    char header[2048];
-    char status_text[32];
-    int body_len;
-
-    body_len=strlen(body);
-
-    if(status_code==200) strcpy(status_text, "OK");
-    else if(status_code==302) strcpy(status_text, "Found");
-    else if(status_code==404) strcpy(status_text, "Not Found");
-    else strcpy(status_text, "OK");
-
-    sprintf(header,
-        "HTTP/1.1 %d %s\r\n"
-        "Content-Type: %s; charset=utf-8\r\n"
-        "Content-Length: %d\r\n"
-        "Connection: close\r\n"
-        "\r\n",
-        status_code, status_text, content_type, body_len);
-
-    send(client, header, strlen(header), 0);
-    send(client, body, body_len, 0);
+    char hdr[1024]; char st[32]; int bl;
+    bl=strlen(body);
+    if(status_code==200) strcpy(st,"OK");
+    else if(status_code==302) strcpy(st,"Found");
+    else if(status_code==404) strcpy(st,"Not Found");
+    else strcpy(st,"OK");
+    sprintf(hdr,
+        "HTTP/1.1 %d %s\r\nContent-Type: %s; charset=utf-8\r\n"
+        "Content-Length: %d\r\nConnection: close\r\n\r\n",
+        status_code, st, content_type, bl);
+    send(client, hdr, strlen(hdr), 0);
+    send(client, body, bl, 0);
 }
 
-/*
- * 发送302重定向
- */
 void send_redirect(SOCKET client, const char* location)
 {
     char buf[512];
-
     sprintf(buf,
-        "HTTP/1.1 302 Found\r\n"
-        "Location: %s\r\n"
-        "Content-Type: text/html; charset=utf-8\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
-        "\r\n",
-        location);
-
+        "HTTP/1.1 302 Found\r\nLocation: %s\r\n"
+        "Content-Length: 0\r\nConnection: close\r\n\r\n", location);
     send(client, buf, strlen(buf), 0);
 }
 
-/* ========== 路由分发 ========== */
+/* ===== 路由分发 ===== */
 
 /*
- * 根据URL路径分发给对应页面处理函数
+ * 查找匹配的路由
+ * 遍历路由表，匹配method+path
  */
+static const struct Route* find_route(const char* method, const char* path)
+{
+    int i;
+    for(i=0; i<(int)ROUTE_COUNT; i++) {
+        if(strcmp(routes[i].method, method)!=0) continue;
+        if(strcmp(routes[i].path, path)!=0) continue;
+        return &routes[i];
+    }
+    return NULL;
+}
+
 void route_dispatch(SOCKET client, struct HttpRequest* req)
 {
-    char userid[32];
-    char username[64];
-    char role[16];
+    const struct Route* rt;
+    char userid[32], username[64], role[16];
     char* page;
 
-    /* 从URL查询参数中获取用户身份 */
+    /* 读取用户身份参数 */
     get_query_param(req->query, "userid", userid);
     get_query_param(req->query, "username", username);
     get_query_param(req->query, "role", role);
 
-    /* ===== POST /login - 登录处理 ===== */
-    if(strcmp(req->path, "/login")==0 && strcmp(req->method, "POST")==0) {
-        char post_role[16];
-        char post_userid[32];
-        char redirect_url[256];
+    /* 查找路由 */
+    rt=find_route(req->method, req->path);
 
+    /* ===== 登录处理 ===== */
+    if(rt!=NULL && rt->is_login) {
+        char post_role[16], post_userid[32], redir[256];
         get_post_param_value(req->body, "role", post_role);
         get_post_param_value(req->body, "userid", post_userid);
 
-        /* 根据角色确定显示名称 */
-        if(strcmp(post_role, "admin")==0) {
-            strcpy(username, "系统管理员");
-        } else if(strcmp(post_role, "teacher")==0) {
-            strcpy(username, "张老师");
-        } else if(strcmp(post_role, "student")==0) {
-            strcpy(username, "李同学");
-        } else {
-            page=page_login("请选择有效的登录身份");
-            send_http_response(client, 200, "text/html", page);
+        if(strcmp(post_role,"admin")==0) strcpy(username,"系统管理员");
+        else if(strcmp(post_role,"teacher")==0) strcpy(username,"张老师");
+        else if(strcmp(post_role,"student")==0) strcpy(username,"李同学");
+        else {
+            page=page_render("static/login.html","","","","","请选择有效的登录身份");
+            send_http_response(client,200,"text/html",page);
             return;
         }
-
-        /* 重定向到角色主页，携带用户参数 */
-        sprintf(redirect_url, "/%s?userid=%s&username=%s&role=%s",
+        sprintf(redir,"/%s?userid=%s&username=%s&role=%s",
                 post_role, post_userid, username, post_role);
-        send_redirect(client, redirect_url);
-        return;
-    }
-
-    /* ===== GET / 或 /login - 登录页面 ===== */
-    if(strcmp(req->path, "/")==0 || strcmp(req->path, "/login")==0) {
-        page=page_login(NULL);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    /* ================================================================ */
-    /*                        管理员路由                                  */
-    /* ================================================================ */
-
-    if(strcmp(req->path, "/admin")==0) {
-        if(strlen(role)==0 || strcmp(role, "admin")!=0) {
-            page=page_login("请使用管理员账号登录");
-            send_http_response(client, 200, "text/html", page);
-            return;
-        }
-        page=page_admin_home(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/student_mgr")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_student_mgr(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/teacher_mgr")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_teacher_mgr(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/admin_mgr")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_admin_mgr(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/select_config")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_select_config(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/select_force")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_select_force(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/select_monitor")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_select_monitor(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/course_list")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_course_list(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/course_edit")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_course_edit(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/course_delete")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_course_delete(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/sys_semester")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_sys_semester(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/admin/sys_majors")==0) {
-        if(strlen(role)==0||strcmp(role,"admin")!=0)
-        { page=page_login("请使用管理员账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_admin_sys_majors(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    /* ================================================================ */
-    /*                        教师路由                                    */
-    /* ================================================================ */
-
-    if(strcmp(req->path, "/teacher")==0) {
-        if(strlen(role)==0 || strcmp(role, "teacher")!=0) {
-            page=page_login("请使用教师账号登录");
-            send_http_response(client, 200, "text/html", page);
-            return;
-        }
-        page=page_teacher_home(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/course_add")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_course_add(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/course_edit")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_course_edit(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/course_list")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_course_list(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/roster")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_roster(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/grade_input")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_grade_input(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/grade_edit")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_grade_edit(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/grade_stats")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_grade_stats(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/teacher/course_close")==0) {
-        if(strlen(role)==0||strcmp(role,"teacher")!=0)
-        { page=page_login("请使用教师账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_teacher_course_close(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    /* ================================================================ */
-    /*                        学生路由                                    */
-    /* ================================================================ */
-
-    if(strcmp(req->path, "/student")==0) {
-        if(strlen(role)==0 || strcmp(role, "student")!=0) {
-            page=page_login("请使用学生账号登录");
-            send_http_response(client, 200, "text/html", page);
-            return;
-        }
-        page=page_student_home(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/my_info")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_my_info(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/edit_info")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_edit_info(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/change_pwd")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_change_pwd(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/course_select")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_course_select(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/my_schedule")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_my_schedule(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/my_grades")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_my_grades(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/grade_stats")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_grade_stats(username, userid);
-        send_http_response(client, 200, "text/html", page);
-        return;
-    }
-
-    if(strcmp(req->path, "/student/ai_analysis")==0) {
-        if(strlen(role)==0||strcmp(role,"student")!=0)
-        { page=page_login("请使用学生账号登录"); send_http_response(client,200,"text/html",page); return; }
-        page=page_student_ai_analysis(username, userid);
-        send_http_response(client, 200, "text/html", page);
+        send_redirect(client, redir);
         return;
     }
 
     /* ===== 退出登录 ===== */
-    if(strcmp(req->path, "/logout")==0) {
+    if(rt!=NULL && rt->is_logout) {
         send_redirect(client, "/");
         return;
     }
 
-    /* ===== 未匹配路由 - 404 ===== */
+    /* ===== 权限校验 ===== */
+    if(rt!=NULL && rt->need_auth) {
+        if(strlen(role)==0 || strcmp(role, rt->allowed_role)!=0) {
+            char msg[64];
+            if(strcmp(rt->allowed_role,"admin")==0)
+                sprintf(msg,"请使用管理员账号登录");
+            else if(strcmp(rt->allowed_role,"teacher")==0)
+                sprintf(msg,"请使用教师账号登录");
+            else
+                sprintf(msg,"请使用学生账号登录");
+            page=page_render("static/login.html","","","","",msg);
+            send_http_response(client,200,"text/html",page);
+            return;
+        }
+    }
+
+    /* ===== 正常页面渲染 ===== */
+    if(rt!=NULL && rt->tmpl!=NULL) {
+        page=page_render(rt->tmpl, username, userid, role, rt->active, NULL);
+        send_http_response(client,200,"text/html",page);
+        return;
+    }
+
+    /* ===== 404 ===== */
     page=page_404();
-    send_http_response(client, 404, "text/html", page);
+    send_http_response(client,404,"text/html",page);
 }
 
-/* ========== 服务器启动 ========== */
+/* ===== 服务器启动 ===== */
 
 int http_server_start(void)
 {
-    WSADATA wsa_data;
-    SOCKET server_sock, client_sock;
-    struct sockaddr_in server_addr, client_addr;
-    int addr_len;
-    char recv_buf[BUFFER_SIZE];
-    int recv_len;
+    WSADATA wsa; SOCKET svr, cli;
+    struct sockaddr_in sa, ca; int al; char rbuf[BUFFER_SIZE]; int rl;
 
-    if(WSAStartup(MAKEWORD(2,2), &wsa_data) != 0) {
-        printf("[ERROR] Winsock init failed\n");
-        return -1;
-    }
+    if(WSAStartup(MAKEWORD(2,2),&wsa)!=0){printf("[ERR]WSA init\n");return -1;}
+    svr=socket(AF_INET,SOCK_STREAM,0);
+    if(svr==INVALID_SOCKET){printf("[ERR]socket\n");WSACleanup();return -1;}
 
-    server_sock=socket(AF_INET, SOCK_STREAM, 0);
-    if(server_sock==INVALID_SOCKET) {
-        printf("[ERROR] Socket create failed\n");
-        WSACleanup();
-        return -1;
-    }
+    sa.sin_family=AF_INET; sa.sin_addr.s_addr=INADDR_ANY; sa.sin_port=htons(PORT);
+    if(bind(svr,(struct sockaddr*)&sa,sizeof(sa))==SOCKET_ERROR)
+        {printf("[ERR]bind %d\n",PORT);closesocket(svr);WSACleanup();return -1;}
+    if(listen(svr,10)==SOCKET_ERROR)
+        {printf("[ERR]listen\n");closesocket(svr);WSACleanup();return -1;}
 
-    server_addr.sin_family=AF_INET;
-    server_addr.sin_addr.s_addr=INADDR_ANY;
-    server_addr.sin_port=htons(PORT);
-
-    if(bind(server_sock, (struct sockaddr*)&server_addr,
-            sizeof(server_addr))==SOCKET_ERROR) {
-        printf("[ERROR] Bind to port %d failed\n", PORT);
-        closesocket(server_sock);
-        WSACleanup();
-        return -1;
-    }
-
-    if(listen(server_sock, 10)==SOCKET_ERROR) {
-        printf("[ERROR] Listen failed\n");
-        closesocket(server_sock);
-        WSACleanup();
-        return -1;
-    }
-
-    printf("\n");
-    printf("============================================\n");
-    printf("  Edu Management System Server Running\n");
-    printf("  URL: http://localhost:%d\n", PORT);
-    printf("  Press Ctrl+C to stop\n");
+    printf("\n============================================\n");
+    printf("  Edu System Server : http://localhost:%d\n",PORT);
+    printf("  %d routes loaded\n",(int)ROUTE_COUNT);
+    printf("  Ctrl+C to stop\n");
     printf("============================================\n\n");
 
-    while(1) {
+    while(1){
         struct HttpRequest req;
-
-        addr_len=sizeof(client_addr);
-        client_sock=accept(server_sock,
-                           (struct sockaddr*)&client_addr, &addr_len);
-        if(client_sock==INVALID_SOCKET) {
-            printf("[WARN] Accept failed, retrying...\n");
-            continue;
-        }
+        al=sizeof(ca);
+        cli=accept(svr,(struct sockaddr*)&ca,&al);
+        if(cli==INVALID_SOCKET){printf("[WARN]accept\n");continue;}
 
         printf("[CONN] %d.%d.%d.%d:%d\n",
-            client_addr.sin_addr.S_un.S_un_b.s_b1,
-            client_addr.sin_addr.S_un.S_un_b.s_b2,
-            client_addr.sin_addr.S_un.S_un_b.s_b3,
-            client_addr.sin_addr.S_un.S_un_b.s_b4,
-            ntohs(client_addr.sin_port));
+            ca.sin_addr.S_un.S_un_b.s_b1,ca.sin_addr.S_un.S_un_b.s_b2,
+            ca.sin_addr.S_un.S_un_b.s_b3,ca.sin_addr.S_un.S_un_b.s_b4,
+            ntohs(ca.sin_port));
 
-        recv_len=recv(client_sock, recv_buf, BUFFER_SIZE-1, 0);
-        if(recv_len<=0) {
-            closesocket(client_sock);
-            continue;
-        }
-        recv_buf[recv_len]='\0';
+        rl=recv(cli,rbuf,BUFFER_SIZE-1,0);
+        if(rl<=0){closesocket(cli);continue;}
+        rbuf[rl]='\0';
+        parse_http_request(rbuf,&req);
+        printf("[REQ] %s %s\n",req.method,req.path);
 
-        parse_http_request(recv_buf, &req);
-        printf("[REQ] %s %s", req.method, req.path);
-        if(strlen(req.query)>0) printf("?%s", req.query);
-        printf("\n");
-
-        route_dispatch(client_sock, &req);
-
-        closesocket(client_sock);
-        printf("[DONE] Connection closed\n");
+        route_dispatch(cli,&req);
+        closesocket(cli);
+        printf("[DONE]\n");
     }
-
-    closesocket(server_sock);
-    WSACleanup();
-    return 0;
+    closesocket(svr); WSACleanup(); return 0;
 }

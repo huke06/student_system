@@ -10,7 +10,7 @@
 
 int main(void)
 {
-    /* 设置控制台代码页为UTF-8，避免中文乱码 */
+    /* 设置控制台代码页为UTF-8 */
     SetConsoleOutputCP(65001);
     SetConsoleCP(65001);
 
