@@ -8,14 +8,12 @@
 
 /* ========== 系统常量 ========== */
 
-#define PORT 8080                 /* 服务器监听端口 */
-#define BUFFER_SIZE 8192          /* HTTP请求缓冲区大小 */
 #define MAX_NAME_LEN 20           /* 姓名最大长度 */
 #define MAX_ID_LEN 10             /* 学号/课程号最大长度 */
 #define MAX_PHONE_LEN 15          /* 电话号码最大长度 */
 #define MAX_MAJOR_LEN 50          /* 专业名称最大长度 */
 #define MAX_DEPT_LEN 50           /* 院系名称最大长度 */
-#define MAX_PWD_LEN 32            /* MD5密文长度 */
+#define MAX_PWD_LEN 32            /* 密码（凯撒加密）最大长度 */
 #define MAX_SCHEDULE_LEN 200      /* 上课时段字符串最大长度 */
 #define MAX_SYLLABUS_LEN 500      /* 教学大纲最大长度 */
 #define MAX_MAJORS_LEN 500        /* 专业列表最大长度 */
@@ -46,7 +44,7 @@ struct Student {
     char grade[10];               /* 年级 */
     char major[MAX_MAJOR_LEN+1]; /* 专业 */
     char phone[MAX_PHONE_LEN+1]; /* 联系电话 */
-    char password[MAX_PWD_LEN+1];/* 密码 */
+    char password[MAX_PWD_LEN+1];/* 密码（凯撒加密） */
 };
 
 /* 教师信息，工号为主键，6位数字 */
@@ -56,14 +54,14 @@ struct Teacher {
     char gender[4];               /* 性别 */
     char department[MAX_DEPT_LEN+1]; /* 院系 */
     char phone[MAX_PHONE_LEN+1]; /* 联系电话 */
-    char password[MAX_PWD_LEN+1];/* 密码 */
+    char password[MAX_PWD_LEN+1];/* 密码（凯撒加密） */
 };
 
 /* 管理员信息 */
 struct Admin {
     char id[MAX_ID_LEN+1];       /* 管理员账号 */
     char name[MAX_NAME_LEN+1];   /* 姓名 */
-    char password[MAX_PWD_LEN+1];/* 密码 */
+    char password[MAX_PWD_LEN+1];/* 密码（凯撒加密） */
 };
 
 /* 课程信息，课程号为主键 */
