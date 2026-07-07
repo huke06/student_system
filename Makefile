@@ -1,13 +1,13 @@
-# Makefile - 教务管理系统
-# 工程结构: include/ 头文件, src/ 源文件, static/ 前端模板
+# Makefile - 教务管理系统（控制台版）
+# 纯命令行交互，菜单驱动
 
 CC=gcc
 CFLAGS=-Wall -Wextra -I./include
-LDFLAGS=-lws2_32
+LDFLAGS=
 TARGET=edu_system.exe
 
-SRCS=src/main.c src/http_server.c src/page_handler.c src/utils.c src/md5.c
-OBJS=src/main.o src/http_server.o src/page_handler.o src/utils.o src/md5.o
+SRCS=src/main.c src/menu_admin.c src/menu_teacher.c src/menu_student.c src/utils.c src/md5.c src/logger.c
+OBJS=src/main.o src/menu_admin.o src/menu_teacher.o src/menu_student.o src/utils.o src/md5.o src/logger.o
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
@@ -16,20 +16,26 @@ $(TARGET): $(OBJS)
 	@echo  运行: .\$(TARGET)
 	@echo ====================================
 
-src/main.o: src/main.c include/common.h include/http_server.h
+src/main.o: src/main.c include/common.h include/utils.h include/menu.h include/logger.h
 	$(CC) $(CFLAGS) -c src/main.c -o src/main.o
 
-src/http_server.o: src/http_server.c include/common.h include/http_server.h include/page.h
-	$(CC) $(CFLAGS) -c src/http_server.c -o src/http_server.o
+src/menu_admin.o: src/menu_admin.c include/menu.h include/logger.h
+	$(CC) $(CFLAGS) -c src/menu_admin.c -o src/menu_admin.o
 
-src/page_handler.o: src/page_handler.c include/page.h
-	$(CC) $(CFLAGS) -c src/page_handler.c -o src/page_handler.o
+src/menu_teacher.o: src/menu_teacher.c include/menu.h
+	$(CC) $(CFLAGS) -c src/menu_teacher.c -o src/menu_teacher.o
+
+src/menu_student.o: src/menu_student.c include/menu.h include/utils.h
+	$(CC) $(CFLAGS) -c src/menu_student.c -o src/menu_student.o
 
 src/utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c src/utils.c -o src/utils.o
 
 src/md5.o: src/md5.c include/utils.h
 	$(CC) $(CFLAGS) -c src/md5.c -o src/md5.o
+
+src/logger.o: src/logger.c include/logger.h
+	$(CC) $(CFLAGS) -c src/logger.c -o src/logger.o
 
 clean:
 	rm -f src/*.o $(TARGET)

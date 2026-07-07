@@ -118,12 +118,11 @@ struct SystemConfig {
     char majors[MAX_MAJORS_LEN+1];/* 专业列表 */
 };
 
-/* HTTP请求解析结果 */
-struct HttpRequest {
-    char method[8];               /* GET/POST */
-    char path[256];               /* URL路径 */
-    char body[4096];              /* 请求体 */
-    char query[1024];             /* URL查询参数 */
+/* 当前登录会话信息 */
+struct Session {
+    char userid[32];              /* 用户账号 */
+    char username[64];            /* 用户姓名 */
+    int role;                     /* 角色 ROLE_ADMIN/TEACHER/STUDENT */
 };
 
 #endif /* COMMON_H */
