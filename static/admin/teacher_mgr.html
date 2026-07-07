@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>教师账号管理 - 教务管理系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Microsoft YaHei',SimHei,sans-serif;background:#eef1f5;min-height:100vh;display:flex;}
+.sidebar{width:220px;background:#1e3a5f;color:#c8d6e5;min-height:100vh;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;}
+.sidebar .logo{height:50px;line-height:50px;text-align:center;font-size:17px;font-weight:bold;color:#fff;background:#172d4a;border-bottom:1px solid #2a4a6d;}
+.sidebar .logo a{color:#fff;text-decoration:none;}
+.sidebar .user-info{padding:14px 16px;font-size:13px;color:#a0b4c8;border-bottom:1px solid #2a4a6d;}
+.sidebar .user-info span{display:block;color:#e8e8e8;font-size:14px;margin-top:2px;}
+.nav-group{margin-top:6px;}
+.nav-group .group-title{padding:10px 16px 4px;font-size:12px;color:#6b8aaa;font-weight:bold;}
+.nav-group a{display:block;padding:8px 16px 8px 24px;color:#c8d6e5;text-decoration:none;font-size:13px;transition:all 0.15s;}
+.nav-group a:hover{background:#2a4a6d;color:#fff;border-left:3px solid #4a90d9;padding-left:21px;}
+.nav-group a.active{background:#2a4a6d;color:#fff;border-left:3px solid #4a90d9;}
+.main-area{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.top-bar{height:50px;line-height:50px;background:#fff;padding:0 25px;border-bottom:1px solid #dde1e6;display:flex;justify-content:flex-end;align-items:center;font-size:13px;color:#555;}
+.top-bar a{color:#1e3a5f;text-decoration:none;margin-left:15px;font-weight:bold;}
+.top-bar a:hover{color:#c0392b;}
+.content{padding:25px;flex:1;}
+.content .welcome{margin-bottom:22px;}
+.content .welcome h2{font-size:20px;color:#1e3a5f;font-weight:normal;}
+.content .welcome p{font-size:13px;color:#999;margin-top:4px;}
+.toolbar{margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.toolbar input,.toolbar select{padding:7px 10px;border:1px solid #ccd;border-radius:3px;font-size:13px;}
+.toolbar button{padding:7px 16px;background:#1e3a5f;color:#fff;border:none;border-radius:3px;font-size:13px;cursor:pointer;}
+.toolbar button:hover{background:#2a5280;}
+table.data-table{width:100%;border-collapse:collapse;font-size:13px;}
+table.data-table th{background:#f5f6f8;color:#333;padding:10px 8px;border:1px solid #dde1e6;text-align:left;font-weight:bold;}
+table.data-table td{padding:8px;border:1px solid #dde1e6;color:#444;}
+table.data-table tr:hover{background:#f9fafb;}
+.btn-sm{padding:4px 10px;font-size:12px;border:1px solid #ccd;border-radius:2px;cursor:pointer;background:#fff;color:#333;margin:0 2px;}
+.btn-sm.danger{color:#c0392b;border-color:#e0b4b4;}
+.btn-sm.primary{color:#1e3a5f;border-color:#a0b8d0;}
+.section-title{font-size:15px;color:#1e3a5f;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid #eef1f5;}
+.form-inline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.form-inline .field{display:flex;flex-direction:column;}
+.form-inline .field label{font-size:12px;color:#666;margin-bottom:3px;}
+.form-inline .field input,.form-inline .field select{padding:6px 8px;border:1px solid #ccd;border-radius:3px;font-size:13px;width:130px;}
+.info-text{font-size:13px;color:#666;line-height:1.8;}
+.stat-box{display:inline-block;background:#fff;border:1px solid #dde1e6;padding:16px 24px;margin:6px;text-align:center;min-width:100px;}
+.stat-box .num{font-size:24px;color:#1e3a5f;font-weight:bold;}
+.stat-box .lbl{font-size:12px;color:#999;margin-top:4px;}
+.footer{text-align:center;color:#aaa;font-size:11px;padding:15px;border-top:1px solid #e4e7ec;}
+</style>
+</head>
+<body>
+{{sidebar}}
+<div class="main-area">
+  <div class="top-bar">
+    <a href="/logout">退出登录</a>
+  </div>
+  <div class="content">
+
+    <div class="welcome">
+      <h2>教师账号管理</h2>
+      <p>管理系统中所有教师账号信息</p>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" placeholder="工号或姓名关键词">
+      <select>
+        <option value="">所有院系</option>
+        <option value="cs">计算机学院</option>
+        <option value="math">数学学院</option>
+        <option value="eng">外语学院</option>
+      </select>
+      <button onclick="location.href='?userid={{userid}}&username={{username}}&role={{role}}'">查询</button>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>工号</th>
+          <th>姓名</th>
+          <th>性别</th>
+          <th>院系</th>
+          <th>联系电话</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>100001</td>
+          <td>陈教授</td>
+          <td>男</td>
+          <td>计算机学院</td>
+          <td>13800001004</td>
+          <td>
+            <button class="btn-sm primary" onclick="location.href='?userid={{userid}}&username={{username}}&role={{role}}'">编辑</button>
+            <button class="btn-sm danger" onclick="if(confirm('确认删除该教师账号？')) location.href='?userid={{userid}}&username={{username}}&role={{role}}'">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td>100002</td>
+          <td>刘副教授</td>
+          <td>女</td>
+          <td>数学学院</td>
+          <td>13800001005</td>
+          <td>
+            <button class="btn-sm primary" onclick="location.href='?userid={{userid}}&username={{username}}&role={{role}}'">编辑</button>
+            <button class="btn-sm danger" onclick="if(confirm('确认删除该教师账号？')) location.href='?userid={{userid}}&username={{username}}&role={{role}}'">删除</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section-title">新增教师</div>
+
+    <div class="form-inline">
+      <div class="field">
+        <label>工号</label>
+        <input type="text" placeholder="工号">
+      </div>
+      <div class="field">
+        <label>姓名</label>
+        <input type="text" placeholder="姓名">
+      </div>
+      <div class="field">
+        <label>性别</label>
+        <select>
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>院系</label>
+        <select>
+          <option value="">请选择</option>
+          <option value="cs">计算机学院</option>
+          <option value="math">数学学院</option>
+          <option value="eng">外语学院</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>联系电话</label>
+        <input type="text" placeholder="联系电话">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button>添加</button>
+      </div>
+    </div>
+
+  </div>
+  <div class="footer">教务管理系统 v1.0</div>
+</div>
+</body>
+</html>

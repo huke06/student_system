@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>教务管理系统 - 登录</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Microsoft YaHei',SimHei,sans-serif;background:#eef1f5;min-height:100vh;}
+.login-box{width:400px;margin:100px auto;background:#fff;border:1px solid #dde1e6;border-radius:4px;padding:38px 36px;}
+.login-box h1{text-align:center;color:#1e3a5f;font-size:22px;font-weight:bold;margin-bottom:4px;}
+.login-box .subtitle{text-align:center;color:#999;font-size:12px;margin-bottom:22px;}
+.form-row{margin-bottom:16px;}
+.form-row label{display:block;font-size:13px;color:#444;margin-bottom:5px;}
+.form-row input,.form-row select{width:100%;padding:9px 10px;border:1px solid #ccd;border-radius:3px;font-size:13px;outline:none;}
+.form-row input:focus,.form-row select:focus{border-color:#1e3a5f;}
+.btn-login{width:100%;padding:10px;background:#1e3a5f;color:#fff;border:none;border-radius:3px;font-size:14px;cursor:pointer;letter-spacing:2px;}
+.btn-login:hover{background:#2a5280;}
+.error-tip{background:#fef0f0;color:#c0392b;padding:8px 12px;border:1px solid #f5c6cb;border-radius:3px;margin-bottom:14px;font-size:12px;text-align:center;}
+.footer{text-align:center;color:#999;font-size:12px;padding:20px;}
+</style>
+</head>
+<body>
+<div class="login-box">
+  <h1>教务管理系统</h1>
+  <p class="subtitle">综合教务管理平台</p>
+  {{error_msg}}
+  <form method="POST" action="/login">
+    <div class="form-row">
+      <label>登录身份</label>
+      <select name="role" required>
+        <option value="">-- 请选择登录身份 --</option>
+        <option value="admin">管理员</option>
+        <option value="teacher">教师</option>
+        <option value="student">学生</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>账号</label>
+      <input type="text" name="userid" placeholder="请输入学号/工号/管理员账号" required>
+    </div>
+    <div class="form-row">
+      <label>密码</label>
+      <input type="password" name="password" placeholder="请输入密码" required>
+    </div>
+    <button type="submit" class="btn-login">登 录</button>
+  </form>
+</div>
+<div class="footer">教务管理系统 v1.0</div>
+</body>
+</html>
