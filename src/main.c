@@ -12,9 +12,7 @@
 #include "logger.h"
 #include "data_store.h"
 
-/*
- * 清屏并打印系统标题栏
- */
+/*清屏并打印系统标题栏*/
 void print_header(const char* title)
 {
     system("cls");
@@ -26,9 +24,7 @@ void print_header(const char* title)
     printf("========================================\n\n");
 }
 
-/*
- * 读取整数选项，带范围校验
- */
+/*读取整数选项，带范围校验*/
 int get_choice(const char* prompt, int min, int max)
 {
     int choice;
@@ -46,9 +42,7 @@ int get_choice(const char* prompt, int min, int max)
     }
 }
 
-/*
- * 暂停，等待按回车
- */
+/*暂停，等待按回车*/
 void pause_and_continue(void)
 {
     printf("\n按回车键继续...");
@@ -56,10 +50,10 @@ void pause_and_continue(void)
 }
 
 /*
- * 用户登录验证
- * role: 用户角色（由主菜单传入）
- * 返回：1登录成功，0失败
- * 框架阶段：密码"123456"验证通过
+  用户登录验证
+  role: 用户角色（由主菜单传入）
+  返回：1登录成功，0失败
+  框架阶段：密码"123456"验证通过
  */
 static int login_flow(struct Session* session, int role)
 {
@@ -170,9 +164,7 @@ static int login_flow(struct Session* session, int role)
     return 1;
 }
 
-/*
- * 主函数
- */
+/* 主函数*/
 int main(void)
 {
     struct Session session;

@@ -1,7 +1,4 @@
-/*
- * ai_helper.c - AI 辅助功能实现
- * 通过 curl 调用 DeepSeek API，JSON 经临时文件中转，避免中文转义问题
- */
+/* ai_helper.c - AI辅助功能实现，通过curl调用DeepSeek API，JSON经临时文件中转 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,8 +7,8 @@
 #include "data_store.h"
 #include "utils.h"
 
-/* DeepSeek API 配置 */
-#define API_KEY  "sk-15662568a6124ae486b8e8f2f6ec483e"
+/* DeepSeek API 配置 - 请替换为你的API Key */
+#define API_KEY  "你的API_KEY"
 #define API_URL  "https://api.deepseek.com/v1/chat/completions"
 #define API_MODEL "deepseek-chat"
 
@@ -19,9 +16,7 @@
 #define REQ_FILE  "data/ai_req.json"
 #define RESP_FILE "data/ai_resp.json"
 
-/* ================================================================ */
-/*                      内部工具函数                                  */
-/* ================================================================ */
+/* 内部工具函数 */
 
 /*
  * 对字符串中的特殊 JSON 字符做简单转义
@@ -210,9 +205,7 @@ int ai_call(const char* system_prompt, const char* user_message,
     return found ? 1 : 0;
 }
 
-/* ================================================================ */
 /*                      智能选课推荐                                  */
-/* ================================================================ */
 
 int ai_course_recommend(const char* student_id,
                         const char* interests, const char* future_plan,
@@ -296,9 +289,7 @@ int ai_course_recommend(const char* student_id,
     return ai_call(sys_prompt, user_msg, reply, max_len);
 }
 
-/* ================================================================ */
 /*                      智能成绩分析                                  */
-/* ================================================================ */
 
 int ai_grade_analysis(const char* student_id, char* reply, int max_len)
 {
