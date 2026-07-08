@@ -1,7 +1,4 @@
-/*
- * main.c - 教务管理系统控制台入口
- * 纯命令行交互，菜单驱动
- */
+/* main.c - 教务管理系统控制台入口，纯命令行交互，菜单驱动 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +10,7 @@
 #include "utils.h"
 #include "menu.h"
 #include "logger.h"
+#include "data_store.h"
 
 /*
  * 清屏并打印系统标题栏
@@ -112,37 +110,55 @@ static int login_flow(struct Session* session, int role)
         pwd[strcspn(pwd, "\n")]='\0';
     }
 
-    /* 将输入密码用凯撒密码加密(偏移量3) */
+    /* 凯撒加密 */
     caesar_encrypt(pwd, 3, hash);
 
-    /*
-     * 密码验证（框架阶段：密码"123456"通过）
-     * 凯撒偏移3: "123456" -> "456789"
-     * 后续接入数据文件后改为从文件读取密文比对
-     */
-    if(strcmp(hash, "456789")!=0) {
-        printf("\n  [错误] 密码错误！\n");
-        /* 记录登录失败日志 */
-        {
-            char log_user[128];
-            sprintf(log_user, "%s(%s)", role_name, userid);
-            log_write(LOG_TYPE_ERROR, log_user, "登录失败-密码错误");
+    /* 从数据文件验证账号密码 */
+    {
+        int login_ok;
+        login_ok=0;
+
+        if(role==ROLE_ADMIN) {
+            struct Admin a;
+            if(ds_admin_find_by_id(userid, &a)) {
+                if(strcmp(hash, a.password)==0) {
+                    strcpy(session->username, a.name);
+                    login_ok=1;
+                }
+            }
+        } else if(role==ROLE_TEACHER) {
+            struct Teacher t;
+            if(ds_teacher_find_by_id(userid, &t)) {
+                if(strcmp(hash, t.password)==0) {
+                    strcpy(session->username, t.name);
+                    login_ok=1;
+                }
+            }
+        } else if(role==ROLE_STUDENT) {
+            struct Student st;
+            if(ds_student_find_by_id(userid, &st)) {
+                if(strcmp(hash, st.password)==0) {
+                    strcpy(session->username, st.name);
+                    login_ok=1;
+                }
+            }
         }
-        pause_and_continue();
-        return 0;
+
+        if(!login_ok) {
+            printf("\n  [错误] 账号或密码错误！\n");
+            {
+                char log_user[128];
+                sprintf(log_user, "%s(%s)", role_name, userid);
+                log_write(LOG_TYPE_ERROR, log_user, "登录失败");
+            }
+            pause_and_continue();
+            return 0;
+        }
     }
 
     /* 设置会话 */
     strcpy(session->userid, userid);
     session->role=role;
-
-    if(role==ROLE_ADMIN) {
-        strcpy(session->username, "系统管理员");
-    } else if(role==ROLE_TEACHER) {
-        strcpy(session->username, "张老师");
-    } else {
-        strcpy(session->username, "李同学");
-    }
 
     /* 记录登录成功日志 */
     {
@@ -165,6 +181,9 @@ int main(void)
     /* 控制台UTF-8编码 */
     SetConsoleOutputCP(65001);
     SetConsoleCP(65001);
+
+    /* 初始化数据存储（首次运行自动创建种子数据） */
+    ds_init();
 
     while(1) {
         print_header("主菜单");

@@ -1,12 +1,9 @@
-/*
- * common.h - 教务管理系统公共头文件
- * 包含所有数据结构定义和系统常量
- */
+/* common.h - 教务管理系统公共头文件，包含所有数据结构定义和系统常量 */
 
 #ifndef COMMON_H
 #define COMMON_H
 
-/* ========== 系统常量 ========== */
+/* 系统常量 */
 
 #define MAX_NAME_LEN 20           /* 姓名最大长度 */
 #define MAX_ID_LEN 10             /* 学号/课程号最大长度 */
@@ -18,23 +15,39 @@
 #define MAX_SYLLABUS_LEN 500      /* 教学大纲最大长度 */
 #define MAX_MAJORS_LEN 500        /* 专业列表最大长度 */
 #define MAX_LOGIN_ATTEMPTS 3      /* 最大登录尝试次数 */
+#define MAX_STUDENTS    1000      /* 学生最大记录数 */
+#define MAX_TEACHERS    200       /* 教师最大记录数 */
+#define MAX_ADMINS      20        /* 管理员最大记录数 */
+#define MAX_COURSES     500       /* 课程最大记录数 */
+#define MAX_SELECTIONS  5000      /* 选课最大记录数 */
+#define MAX_SCORES      5000      /* 成绩最大记录数 */
 
-/* ========== 课程状态 ========== */
+/* 数据文件路径 */
+#define DATA_DIR        "data"
+#define FILE_STUDENTS   "data/students.dat"
+#define FILE_TEACHERS   "data/teachers.dat"
+#define FILE_ADMINS     "data/admins.dat"
+#define FILE_COURSES    "data/courses.dat"
+#define FILE_SELECTIONS "data/selections.dat"
+#define FILE_SCORES     "data/scores.dat"
+#define FILE_CONFIG     "data/config.dat"
+
+/* 课程状态 */
 #define COURSE_STATUS_DRAFT    0  /* 未发布 */
 #define COURSE_STATUS_SELECT   1  /* 选课中 */
 #define COURSE_STATUS_TEACHING 2  /* 授课中 */
 #define COURSE_STATUS_CLOSED   3  /* 已结课 */
 
-/* ========== 课程类型 ========== */
+/* 课程类型 */
 #define COURSE_TYPE_REQUIRED 0    /* 必修 */
 #define COURSE_TYPE_ELECTIVE 1    /* 选修 */
 
-/* ========== 用户角色 ========== */
+/* 用户角色 */
 #define ROLE_ADMIN   1            /* 管理员 */
 #define ROLE_TEACHER 2            /* 教师 */
 #define ROLE_STUDENT 3            /* 学生 */
 
-/* ========== 数据结构 ========== */
+/* 数据结构 */
 
 /* 学生信息，学号为主键，10位数字 */
 struct Student {
