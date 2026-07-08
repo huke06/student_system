@@ -19,3 +19,7 @@ Desktop.ini
 *.log
 *.docx
 *.md
+data/*.json
+data/exports/
+data/*.json
+data/exports/

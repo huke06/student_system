@@ -258,7 +258,8 @@ static void sub_grade_mgr(struct Session* s)
                             for(si=0;si<sc_total;si++){
                                 if(strcmp(all_scores[si].course_id,picked->id)==0){
                                     float s=all_scores[si].total_score;sum+=s;
-                                    if(s>max_s)max_s=s; if(s<min_s)min_s=s;
+                                    if(s>max_s)max_s=s;
+                                    if(s<min_s)min_s=s;
                                     if(s>=90)exc++;else if(s>=80)good++;else if(s>=70)mid++;else if(s>=60)pass++;else fail++;
                                 }
                             }
