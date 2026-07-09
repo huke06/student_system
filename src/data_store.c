@@ -1166,7 +1166,6 @@ int ds_init(void)
     if(need_seed) {
         /* 创建 data 目录 */
         _make_dir(DATA_DIR);
-
         /* 写入种子数据 */
         _seed_students();
         _seed_teachers();
