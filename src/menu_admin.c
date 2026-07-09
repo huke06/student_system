@@ -473,8 +473,8 @@ static void sub_sys_config(struct Session* s)
     while(1) {
         print_header("系统基础配置");
         printf("  当前用户: %s (管理员)\n\n", s->username);
-        printf("  1. 设置学期开学日期\n  2. 查看推算教学周\n  3. 维护专业列表\n  0. 返回上级\n\n");
-        ch=get_choice("请输入选项 [0-3]: ", 0, 3);
+        printf("  1. 设置学期开学日期\n  2. 查看推算教学周\n  3. 维护专业列表\n  4. 设置AI API Key\n  0. 返回上级\n\n");
+        ch=get_choice("请输入选项 [0-4]: ", 0, 4);
         if(ch==0) break;
         if(ch==1) {
             struct SystemConfig cfg; char buf[16];
@@ -519,6 +519,17 @@ static void sub_sys_config(struct Session* s)
                 }
                 if(mch!=0) pause_and_continue();
             }
+        } else if(ch==4) {
+            struct SystemConfig cfg; char buf[128];
+            ds_config_load(&cfg);
+            printf("\n  当前API Key: %s\n", (strlen(cfg.api_key)>0)?cfg.api_key:"(未设置)");
+            printf("  新API Key(回车保留): ");
+            if(_isatty(_fileno(stdin))){int idx=0;char c;while(1){c=getch();if(c=='\r'||c=='\n'){buf[idx]='\0';printf("\n");break;}if(c=='\b'||c==127){if(idx>0){idx--;printf("\b \b");}}else if(idx<127){buf[idx]=c;idx++;printf("*");}}}
+            else{fgets(buf,sizeof(buf),stdin);buf[strcspn(buf,"\n")]='\0';}
+            str_trim(buf);
+            if(strlen(buf)>0){strcpy(cfg.api_key,buf);if(ds_config_save(&cfg))printf("\n  [成功] API Key已更新\n");else printf("\n  [失败]\n");}
+            else printf("\n  未修改。\n");
+            pause_and_continue();
         }
     }
 }

@@ -124,6 +124,7 @@ struct SystemConfig {
     char select_end[20];          /*选课关闭时间*/
     int select_forced;            /*强制开关:0自动 1开启 2关闭*/
     char majors[MAX_MAJORS_LEN+1];/*专业列表*/
+    char api_key[64];             /*DeepSeek API Key*/
 };
 
 /*当前登录会话信息*/

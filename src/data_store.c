@@ -132,8 +132,8 @@ static void _seed_config(void)
     FILE* fp;
     fp=fopen(FILE_CONFIG, "w");
     if(fp==NULL) return;
-    /*开学日期|选课开始|选课结束|强制开关|专业列表|*/
-    fprintf(fp, "2026-07-6|2026-07-6 08:00|2026-07-20 18:00|0|计算机科学与技术,汉语言,数学,美术|\n");
+    /*开学日期|选课开始|选课结束|强制开关|专业列表|api_key|*/
+    fprintf(fp, "2026-07-6|2026-07-6 08:00|2026-07-20 18:00|0|计算机科学与技术,汉语言,数学,美术||\n");
     fclose(fp);
 }
 
@@ -1059,11 +1059,12 @@ static int _parse_config(const char* line, struct SystemConfig* cfg)
     char forced_buf[8];
     int ret;
 
-    /*开学日期|选课开始|选课结束|强制开关|专业列表|*/
-    ret=sscanf(line, "%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|",
+    /*开学日期|选课开始|选课结束|强制开关|专业列表|api_key|*/
+    ret=sscanf(line, "%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|",
         cfg->semester_start, cfg->select_start, cfg->select_end,
-        forced_buf, cfg->majors);
-    if(ret!=5) return 0;
+        forced_buf, cfg->majors, cfg->api_key);
+    if(ret<5) return 0;
+    if(ret==5) cfg->api_key[0]='\0';
 
     cfg->select_forced=atoi(forced_buf);
     return 1;
@@ -1095,9 +1096,9 @@ int ds_config_save(const struct SystemConfig* cfg)
     fp=fopen(FILE_CONFIG, "w");
     if(fp==NULL) return 0;
 
-    fprintf(fp, "%s|%s|%s|%d|%s|\n",
+    fprintf(fp, "%s|%s|%s|%d|%s|%s|\n",
         cfg->semester_start, cfg->select_start, cfg->select_end,
-        cfg->select_forced, cfg->majors);
+        cfg->select_forced, cfg->majors, cfg->api_key);
     fclose(fp);
     return 1;
 }

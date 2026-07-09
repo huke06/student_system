@@ -8,7 +8,6 @@
 #include "utils.h"
 
 /*DeepSeek API 配置*/
-#define API_KEY  "你的API_KEY"
 #define API_URL  "https://api.deepseek.com/v1/chat/completions"
 #define API_MODEL "deepseek-chat"
 
@@ -57,9 +56,16 @@ int ai_call(const char* system_prompt, const char* user_message,
     char* esc_usr;
     char cmd[1024];
     char line[2048];
+    char api_key[64];
+    struct SystemConfig cfg;
     int found;
 
     if(reply==NULL || max_len<=0) return 0;
+
+    /*从配置读取API Key*/
+    api_key[0]='\0';
+    if(ds_config_load(&cfg)) strcpy(api_key, cfg.api_key);
+    if(strlen(api_key)==0) return 0;
 
     /*初始化为空*/
     reply[0]='\0';
@@ -102,7 +108,7 @@ int ai_call(const char* system_prompt, const char* user_message,
         "-H \"Content-Type: application/json\" "
         "-H \"Authorization: Bearer %s\" "
         "-d @%s -o %s",
-        API_URL, API_KEY, REQ_FILE, RESP_FILE);
+        API_URL, api_key, REQ_FILE, RESP_FILE);
 
     system(cmd);
 
@@ -201,7 +207,7 @@ int ai_call(const char* system_prompt, const char* user_message,
             fclose(fp);
         }
     }
-    
+
     return found ? 1 : 0;
 }
 
