@@ -1,4 +1,4 @@
-/* menu_admin.c - 管理员控制台菜单，含账号管理、课程管理、系统配置、日志分析 */
+/*管理员控制台菜单，含账号管理、课程管理、系统配置、日志分析 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include "data_store.h"
 #include "utils.h"
 
-/* 从系统配置加载专业列表，展示并让用户单选，返回选中编号(0=手输) */
+/*从系统配置加载专业列表，展示并让用户单选，返回选中编号(0=手输)*/
 int pick_major(const char* label, char* majors_out)
 {
     struct SystemConfig cfg;
@@ -53,7 +53,7 @@ int pick_major(const char* label, char* majors_out)
     return choice;
 }
 
-/* 专业多选器（用于课程适用专业），输出逗号分隔列表 */
+/*专业多选器（用于课程适用专业），输出逗号分隔列表*/
 int pick_majors_multi(const char* label, char* out)
 {
     struct SystemConfig cfg;
@@ -120,7 +120,7 @@ int pick_majors_multi(const char* label, char* out)
     return selected;
 }
 
-/* 学生账号管理 */
+/*学生账号管理*/
 static void sub_student_mgr(struct Session* s)
 {
     int ch;
@@ -262,7 +262,7 @@ static void sub_student_mgr(struct Session* s)
     }
 }
 
-/* 教师账号管理 */
+/*教师账号管理*/
 static void sub_teacher_mgr(struct Session* s)
 {
     int ch;
@@ -331,7 +331,7 @@ static void sub_teacher_mgr(struct Session* s)
     }
 }
 
-/* 管理员账号管理 */
+/*管理员账号管理*/
 static void sub_admin_mgr(struct Session* s)
 {
     int ch;
@@ -388,7 +388,7 @@ static void sub_admin_mgr(struct Session* s)
     }
 }
 
-/* 课程全局管理 */
+/*课程全局管理*/
 static void sub_course_mgr(struct Session* s)
 {
     int ch;
@@ -466,7 +466,7 @@ static void sub_course_mgr(struct Session* s)
     }
 }
 
-/* 系统基础配置 */
+/*系统基础配置*/
 static void sub_sys_config(struct Session* s)
 {
     int ch;
@@ -523,7 +523,7 @@ static void sub_sys_config(struct Session* s)
     }
 }
 
-/* 账号信息管理子菜单 */
+/*账号信息管理子菜单*/
 static void sub_account_mgr(struct Session* s)
 {
     int ch;
@@ -537,7 +537,7 @@ static void sub_account_mgr(struct Session* s)
     }
 }
 
-/* 日志分析 */
+/*日志分析*/
 static void sub_log_analysis(struct Session* s)
 {
     int ch, type; char keyword[64];
@@ -559,7 +559,7 @@ static void sub_log_analysis(struct Session* s)
     }
 }
 
-/* 管理员主菜单 */
+/*管理员主菜单*/
 void admin_menu(struct Session* session)
 {
     int ch;

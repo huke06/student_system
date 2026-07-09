@@ -1,4 +1,4 @@
-/* ai_helper.c - AI辅助功能实现，通过curl调用DeepSeek API，JSON经临时文件中转 */
+/*AI辅助功能实现，通过curl调用DeepSeek API，JSON经临时文件中转*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,22 +7,22 @@
 #include "data_store.h"
 #include "utils.h"
 
-/* DeepSeek API 配置 - 请替换为你的API Key */
+/*DeepSeek API 配置*/
 #define API_KEY  "你的API_KEY"
 #define API_URL  "https://api.deepseek.com/v1/chat/completions"
 #define API_MODEL "deepseek-chat"
 
-/* 临时文件路径 */
+/*临时文件路径*/
 #define REQ_FILE  "data/ai_req.json"
 #define RESP_FILE "data/ai_resp.json"
 
-/* 内部工具函数 */
+/*内部工具函数*/
 
 /*
- * 对字符串中的特殊 JSON 字符做简单转义
- * 将 \ " 和换行符转义，防止 JSON 格式错误
- * src: 源字符串
- * dst: 输出缓冲区（需足够大，建议 src 长度*2+1）
+对字符串中的特殊 JSON 字符做简单转义
+将 \ " 和换行符转义，防止 JSON 格式错误
+src: 源字符串
+dst: 输出缓冲区（需足够大，建议 src 长度*2+1）
  */
 static void _json_escape(const char* src, char* dst)
 {
@@ -43,12 +43,12 @@ static void _json_escape(const char* src, char* dst)
 }
 
 /*
- * 发送请求到 DeepSeek API 并获取回复
- * system_prompt: 系统角色设定
- * user_message:  用户输入
- * reply:         输出回复文本
- * max_len:       输出缓冲区长度
- */
+发送请求到 DeepSeek API 并获取回复
+system_prompt:系统角色设定
+user_message:用户输入
+reply:输出回复文本
+max_len:输出缓冲区长度
+*/
 int ai_call(const char* system_prompt, const char* user_message,
             char* reply, int max_len)
 {
@@ -61,10 +61,10 @@ int ai_call(const char* system_prompt, const char* user_message,
 
     if(reply==NULL || max_len<=0) return 0;
 
-    /* 初始化为空 */
+    /*初始化为空*/
     reply[0]='\0';
 
-    /* 对系统提示词和用户消息做 JSON 转义 */
+    /*对系统提示词和用户消息做JSON转义*/
     esc_sys=(char*)malloc(strlen(system_prompt)*2+1);
     esc_usr=(char*)malloc(strlen(user_message)*2+1);
     if(esc_sys==NULL || esc_usr==NULL) {
@@ -75,7 +75,7 @@ int ai_call(const char* system_prompt, const char* user_message,
     _json_escape(system_prompt, esc_sys);
     _json_escape(user_message, esc_usr);
 
-    /* 构建 JSON 请求并写入临时文件 */
+    /*构建 JSON 请求并写入临时文件*/
     fp=fopen(REQ_FILE, "w");
     if(fp==NULL) {
         free(esc_sys); free(esc_usr);
@@ -96,7 +96,7 @@ int ai_call(const char* system_prompt, const char* user_message,
     free(esc_sys);
     free(esc_usr);
 
-    /* 调用 curl 发送请求 */
+    /*调用curl发送请求*/
     sprintf(cmd,
         "curl -s -X POST \"%s\" "
         "-H \"Content-Type: application/json\" "
@@ -106,7 +106,7 @@ int ai_call(const char* system_prompt, const char* user_message,
 
     system(cmd);
 
-    /* 读取响应文件，提取 content 字段 */
+    /*读取响应文件,提取content字段*/
     fp=fopen(RESP_FILE, "r");
     if(fp==NULL) return 0;
 
@@ -114,7 +114,7 @@ int ai_call(const char* system_prompt, const char* user_message,
     while(fgets(line, sizeof(line), fp)!=NULL) {
         char* p;
 
-        /* 查找 "content":" 标记 */
+        /*查找 "content":" 标记*/
         p=strstr(line, "\"content\":\"");
         if(p!=NULL) {
             int ri;
@@ -122,9 +122,9 @@ int ai_call(const char* system_prompt, const char* user_message,
 
             ri=0;
             while(*p!='\0' && ri<max_len-1) {
-                /* 遇到 \" 表示字段结束，但可能是 \\" 即转义引号 */
+                /*遇到 \" 表示字段结束，但可能是 \\" 即转义引号*/
                 if(p[0]=='\\' && p[1]=='\"') {
-                    /* 转义引号 → 还原为 " */
+                    /*转义引号 → 还原为 "*/
                     reply[ri++]='"';
                     p+=2;
                     continue;
@@ -140,7 +140,7 @@ int ai_call(const char* system_prompt, const char* user_message,
                     continue;
                 }
                 if(p[0]=='\"') {
-                    /* 真正的字符串结束 */
+                    /*真正的字符串结束*/
                     break;
                 }
                 reply[ri++]=*p;
@@ -149,12 +149,12 @@ int ai_call(const char* system_prompt, const char* user_message,
             reply[ri]='\0';
 
             if(strlen(reply)>0) found=1;
-            /* 不break，继续读可能后面还有content（有些响应分多行） */
+            /*不break，继续读可能后面还有content（有些响应分多行）*/
         }
     }
     fclose(fp);
 
-    /* 如果通过逐行解析没找到，尝试用更简单的方式：读整个文件查找 */
+    /*如果通过逐行解析没找到，尝试用更简单的方式：读整个文件查找*/
     if(!found) {
         long fsize;
         char* fbuf;
@@ -170,7 +170,7 @@ int ai_call(const char* system_prompt, const char* user_message,
                     fread(fbuf, 1, fsize, fp);
                     fbuf[fsize]='\0';
 
-                    /* 查找 "content":" */
+                    /*查找 "content":"*/
                     {
                         char* p;
                         p=strstr(fbuf, "\"content\":\"");
@@ -201,11 +201,11 @@ int ai_call(const char* system_prompt, const char* user_message,
             fclose(fp);
         }
     }
-
+    
     return found ? 1 : 0;
 }
 
-/*                      智能选课推荐                                  */
+/*智能选课推荐*/
 
 int ai_course_recommend(const char* student_id,
                         const char* interests, const char* future_plan,
@@ -219,20 +219,20 @@ int ai_course_recommend(const char* student_id,
     char sys_prompt[512];
     int offset;
 
-    /* 获取学生信息 */
+    /*获取学生信息*/
     if(!ds_student_find_by_id(student_id, &st)) {
         strcpy(reply, "无法获取学生信息。");
         return 0;
     }
 
-    /* 获取所有课程 */
+    /*获取所有课程*/
     ds_course_load_all(courses, &count);
     if(count==0) {
         strcpy(reply, "当前没有课程数据。");
         return 0;
     }
 
-    /* 构建课程信息字符串（仅包含匹配学生专业的课程） */
+    /*构建课程信息字符串（仅包含匹配学生专业的课程）*/
     course_info[0]='\0';
     offset=0;
     for(i=0; i<count; i++) {
@@ -240,7 +240,7 @@ int ai_course_recommend(const char* student_id,
         const char* type_str;
         const char* status_str;
 
-        /* 只推荐适用该学生专业的课程 */
+        /*只推荐适用该学生专业的课程*/
         if(strstr(courses[i].majors, st.major)==NULL) continue;
 
         if(courses[i].type==COURSE_TYPE_REQUIRED) type_str="必修";
@@ -264,7 +264,7 @@ int ai_course_recommend(const char* student_id,
         }
     }
 
-    /* 构建用户消息 */
+    /*构建用户消息*/
     sprintf(user_msg,
         "学生信息：\n"
         "- 专业：%s\n"
@@ -279,7 +279,7 @@ int ai_course_recommend(const char* student_id,
         (future_plan!=NULL && strlen(future_plan)>0) ? future_plan : "未填写",
         course_info);
 
-    /* 系统提示词 */
+    /*系统提示词*/
     strcpy(sys_prompt,
         "你是一个大学教务系统的智能选课助手。你的任务是根据学生的专业背景、"
         "兴趣爱好和未来规划，从课程列表中推荐最适合的课程。"
@@ -289,7 +289,7 @@ int ai_course_recommend(const char* student_id,
     return ai_call(sys_prompt, user_msg, reply, max_len);
 }
 
-/*                      智能成绩分析                                  */
+/*智能成绩分析*/
 
 int ai_grade_analysis(const char* student_id, char* reply, int max_len)
 {
@@ -301,13 +301,13 @@ int ai_grade_analysis(const char* student_id, char* reply, int max_len)
     char sys_prompt[512];
     int offset;
 
-    /* 获取学生信息 */
+    /*获取学生信息*/
     if(!ds_student_find_by_id(student_id, &st)) {
         strcpy(reply, "无法获取学生信息。");
         return 0;
     }
 
-    /* 获取成绩 */
+    /*获取成绩*/
     ds_score_load_by_student(student_id, scores, &count);
     if(count==0) {
         sprintf(reply,
@@ -317,7 +317,7 @@ int ai_grade_analysis(const char* student_id, char* reply, int max_len)
         return 0;
     }
 
-    /* 构建成绩信息 */
+    /*构建成绩信息*/
     grade_info[0]='\0';
     offset=0;
     for(i=0; i<count; i++) {
@@ -342,7 +342,7 @@ int ai_grade_analysis(const char* student_id, char* reply, int max_len)
         }
     }
 
-    /* 构建用户消息 */
+    /*构建用户消息*/
     sprintf(user_msg,
         "学生信息：\n"
         "- 姓名：%s\n"
@@ -352,7 +352,7 @@ int ai_grade_analysis(const char* student_id, char* reply, int max_len)
         "请对该学生的成绩进行全面分析。",
         st.name, st.id, st.major, grade_info);
 
-    /* 系统提示词 */
+    /*系统提示词*/
     strcpy(sys_prompt,
         "你是一个学习分析专家。请根据学生成绩数据进行深入分析，"
         "输出以下四个方面的内容：\n"

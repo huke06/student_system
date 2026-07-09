@@ -1,6 +1,6 @@
 /*
- * logger.c - 日志系统实现
- * 文本文件存储，支持写入、读取筛选、统计分析
+日志系统实现
+文本文件存储，支持写入、读取筛选、统计分析
  */
 
 #include <stdio.h>
@@ -9,12 +9,10 @@
 #include <time.h>
 #include "logger.h"
 
-/* 内部缓冲区 */
+/*内部缓冲区*/
 static char buf[4096];
 
-/*
- * 获取当前时间字符串，格式 yyyy-mm-dd HH:MM:SS
- */
+/*获取当前时间字符串，格式 yyyy-mm-dd HH:MM:SS*/
 static void get_now_str(char* out)
 {
     time_t t;
@@ -27,9 +25,8 @@ static void get_now_str(char* out)
         tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 }
 
-/*
- * 写入一条日志到文件
- * 格式: [时间] [类型] 用户 | 操作描述
+/*写入一条日志到文件
+ 格式: [时间] [类型] 用户 | 操作描述
  */
 void log_write(int type, const char* user, const char* action)
 {
@@ -46,9 +43,7 @@ void log_write(int type, const char* user, const char* action)
     fclose(fp);
 }
 
-/*
- * 日志类型中文名
- */
+/*日志类型中文名*/
 const char* log_type_name(int type)
 {
     switch(type) {
@@ -63,9 +58,7 @@ const char* log_type_name(int type)
     }
 }
 
-/*
- * 读取并显示最近N条日志
- */
+/*读取并显示最近N条日志*/
 void log_show_recent(int count)
 {
     FILE* fp;
@@ -104,10 +97,7 @@ void log_show_recent(int count)
     fclose(fp);
 }
 
-/*
- * 按类型筛选并显示日志
- * type: 0表示显示全部
- */
+/*按类型筛选并显示日志type: 0表示显示全部*/
 void log_show_by_type(int type)
 {
     FILE* fp;
@@ -139,9 +129,7 @@ void log_show_by_type(int type)
     fclose(fp);
 }
 
-/*
- * 搜索包含关键词的日志
- */
+/*搜索包含关键词的日志*/
 void log_search_user(const char* keyword)
 {
     FILE* fp;
@@ -171,9 +159,7 @@ void log_search_user(const char* keyword)
     fclose(fp);
 }
 
-/*
- * 显示日志统计概览
- */
+/* 显示日志统计概览*/
 void log_show_stats(void)
 {
     FILE* fp;
@@ -216,7 +202,7 @@ void log_show_stats(void)
     if(total>0) {
         printf("\n  --- 活跃时段 ---\n");
     }
-    /* 再扫描一遍，找最早和最晚日志时间 */
+    /*找最早和最晚日志时间*/
     rewind(fp);
     {
         char first_time[32]="";

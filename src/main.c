@@ -91,7 +91,7 @@ static int login_flow(struct Session* session, int role)
             }
         }
     } else {
-        /* 管道/重定向输入 */
+        /*管道/重定向输入*/
         fgets(pwd, sizeof(pwd), stdin);
         pwd[strcspn(pwd, "\n")]='\0';
     }
@@ -172,9 +172,9 @@ int main(void)
             log_write(LOG_TYPE_SYSTEM, "系统", "系统退出");
             break;
         }
-        /* 执行登录（role已由主菜单确定） */
+        /*执行登录（role已由主菜单确定）*/
         if(!login_flow(&session, role)) continue;
-        /* 进入对应菜单 */
+        /*进入对应菜单*/
         if(role==ROLE_ADMIN) {
             admin_menu(&session);
         } else if(role==ROLE_TEACHER) {
@@ -182,7 +182,7 @@ int main(void)
         } else if(role==ROLE_STUDENT) {
             student_menu(&session);
         }
-        /* 从角色菜单返回，记录退出登录 */
+        /*从角色菜单返回，记录退出登录*/
         {
             char log_user[128];
             sprintf(log_user, "%s(%s)", session.username, session.userid);

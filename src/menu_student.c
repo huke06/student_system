@@ -11,7 +11,7 @@
 #include "data_store.h"
 #include "ai_helper.h"
 
-/* 个人信息管理 */
+/*个人信息管理*/
 static void sub_my_info(struct Session* s)
 {
     int ch;
@@ -66,7 +66,7 @@ static void sub_my_info(struct Session* s)
     }
 }
 
-/* 选课中心 */
+/*选课中心*/
 static void sub_course_select(struct Session* s)
 {
     int ch;
@@ -92,7 +92,7 @@ static void sub_course_select(struct Session* s)
                     printf("\n  === 可选课程（共 %d 门） ===\n\n",n);
                     printf("  %-6s %-16s %-4s %-4s %-6s %-5s %s\n","课程号","名称","类型","学分","教师","已选/上限","上课时段");
                     printf("  ------------------------------------------------------------------------\n");
-                    for(i=0;i<n;i++){type_str=(avail[i].type==COURSE_TYPE_REQUIRED)?"必修":"选修";printf("  %-6s %-16s %-4s %-4.1f %-6s %2d/%-3d %s\n",avail[i].id,avail[i].name,type_str,avail[i].credit,avail[i].teacher_id,avail[i].enrolled,avail[i].max_students,avail[i].schedule);}
+                    for(i=0;i<n;i++){struct Teacher t;char tname[32]="?";if(ds_teacher_find_by_id(avail[i].teacher_id,&t))strcpy(tname,t.name);type_str=(avail[i].type==COURSE_TYPE_REQUIRED)?"必修":"选修";printf("  %-6s %-16s %-4s %-4.1f %-8s %2d/%-3d %s\n",avail[i].id,avail[i].name,type_str,avail[i].credit,tname,avail[i].enrolled,avail[i].max_students,avail[i].schedule);}
                     printf("\n"); pause_and_continue();
                 }
             }
@@ -104,7 +104,7 @@ static void sub_course_select(struct Session* s)
                 type_str=(c.type==COURSE_TYPE_REQUIRED)?"必修":"选修";
                 if(c.status==COURSE_STATUS_DRAFT)status_str="未发布";else if(c.status==COURSE_STATUS_SELECT)status_str="选课中";else if(c.status==COURSE_STATUS_CLOSED)status_str="已结课";else status_str="?";
                 printf("\n  === 课程详情 ===\n\n");
-                printf("  课程号:%s  名称:%s  类型:%s  学分:%.1f\n  教师:%s  适用专业:%s\n  上课时段:%s  人数:%d/%d\n  平时占比:%.1f  期末占比:%.1f\n  教学周:第%d~%d周  日期:%s~%s\n  状态:%s  大纲:%s\n",c.id,c.name,type_str,c.credit,c.teacher_id,c.majors,c.schedule,c.enrolled,c.max_students,c.daily_ratio,c.final_ratio,c.start_week,c.end_week,c.start_date,c.end_date,status_str,c.syllabus);
+                {struct Teacher t;char tname[32]="?";if(ds_teacher_find_by_id(c.teacher_id,&t))strcpy(tname,t.name);printf("  课程号:%s  名称:%s  类型:%s  学分:%.1f\n  教师:%s  适用专业:%s\n  上课时段:%s  人数:%d/%d\n  平时占比:%.1f  期末占比:%.1f\n  教学周:第%d~%d周  日期:%s~%s\n  状态:%s  大纲:%s\n",c.id,c.name,type_str,c.credit,tname,c.majors,c.schedule,c.enrolled,c.max_students,c.daily_ratio,c.final_ratio,c.start_week,c.end_week,c.start_date,c.end_date,status_str,c.syllabus);}
             }
             printf("\n"); pause_and_continue();
         } else if(ch==3) {
@@ -151,14 +151,14 @@ static void sub_course_select(struct Session* s)
                 printf("\n  === 我的课表（共 %d 门） ===\n\n",sel_count);
                 printf("  %-6s %-16s %-4s %s %-12s %-8s %s\n","课程号","名称","学分","上课时段","教师","状态","周次");
                 printf("  ------------------------------------------------------------------\n");
-                for(i=0;i<sel_count;i++){struct Course c;if(ds_course_find_by_id(my_sel[i].course_id,&c)){char week_info[20];const char* st_str;if(c.status==COURSE_STATUS_CLOSED)st_str="[已结课]";else if(c.status==COURSE_STATUS_SELECT)st_str="选课中";else st_str="?";sprintf(week_info,"第%d~%d周",c.start_week,c.end_week);printf("  %-6s %-16s %-4.1f %s %-12s %-8s %s\n",c.id,c.name,c.credit,c.schedule,c.teacher_id,st_str,week_info);}}
+                for(i=0;i<sel_count;i++){struct Course c;if(ds_course_find_by_id(my_sel[i].course_id,&c)){struct Teacher t;char tname[32]="?";char week_info[20];const char* st_str;if(ds_teacher_find_by_id(c.teacher_id,&t))strcpy(tname,t.name);if(c.status==COURSE_STATUS_CLOSED)st_str="[已结课]";else if(c.status==COURSE_STATUS_SELECT)st_str="选课中";else st_str="?";sprintf(week_info,"第%d~%d周",c.start_week,c.end_week);printf("  %-6s %-16s %-4.1f %s %-10s %-8s %s\n",c.id,c.name,c.credit,c.schedule,tname,st_str,week_info);}}
                 printf("\n"); pause_and_continue();
             }
         }
     }
 }
 
-/* 成绩查询与统计 */
+/*成绩查询与统计*/
 static void sub_grade_query(struct Session* s)
 {
     int ch;
@@ -180,27 +180,45 @@ static void sub_grade_query(struct Session* s)
             }
             printf("\n"); pause_and_continue();
         } else if(ch==2) {
-            struct Score sc; struct Course c; char course_id[16];
-            printf("\n  请输入课程号: "); fgets(course_id,sizeof(course_id),stdin);course_id[strcspn(course_id,"\n")]='\0';str_trim(course_id);
-            if(!ds_score_find_by_sc(s->userid,course_id,&sc)){printf("\n  [提示] 未找到成绩\n");}
-            else{ds_course_find_by_id(course_id,&c);printf("\n  === 成绩明细 ===\n\n  课程:%s(%s)  学分:%.1f\n  平时:%.1f(占比%.1f)  期末:%.1f(占比%.1f)\n  总评:%.1f  绩点:%.2f  录入:%s\n",sc.course_id,c.name,c.credit,sc.daily_score,c.daily_ratio,sc.final_score,c.final_ratio,sc.total_score,sc.gpa,sc.record_time);}
+            struct Score scores[MAX_SCORES]; int count, i;
+            ds_score_load_by_student(s->userid,scores,&count);
+            if(count==0){printf("\n  暂无已出成绩。\n");}
+            else{
+                printf("\n  === 已出成绩课程 ===\n\n");
+                printf("  %-4s %-8s %-20s %-6s %-6s\n","编号","课程号","课程名称","总评","绩点");
+                printf("  ------------------------------------------\n");
+                for(i=0;i<count;i++){struct Course c;char cname[32];strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c))strcpy(cname,c.name);printf("  %-4d %-8s %-20s %-6.1f %-6.2f\n",i+1,scores[i].course_id,cname,scores[i].total_score,scores[i].gpa);}
+                printf("\n");
+                {int cno=get_choice("  请选择课程编号(0取消): ",0,count);
+                if(cno>0){struct Score* sc=&scores[cno-1];struct Course c;ds_course_find_by_id(sc->course_id,&c);printf("\n  === 成绩明细 ===\n\n  课程:%s(%s)  学分:%.1f\n  平时:%.1f(占比%.1f)  期末:%.1f(占比%.1f)\n  总评:%.1f  绩点:%.2f  录入:%s\n",sc->course_id,c.name,c.credit,sc->daily_score,c.daily_ratio,sc->final_score,c.final_ratio,sc->total_score,sc->gpa,sc->record_time);}}
+            }
             printf("\n"); pause_and_continue();
         } else if(ch==3) {
-            struct Score scores[MAX_SCORES]; int count, i; float score_arr[MAX_SCORES],gpa_arr[MAX_SCORES],credit_arr[MAX_SCORES],avg_score,avg_gpa;
+            struct Score scores[MAX_SCORES]; int count, i;
+            float req_score_arr[MAX_SCORES],req_gpa_arr[MAX_SCORES],req_credit_arr[MAX_SCORES];
+            float all_score_arr[MAX_SCORES],all_gpa_arr[MAX_SCORES],all_credit_arr[MAX_SCORES];
+            int req_cnt=0,all_cnt=0;
+            float req_avg_score,req_avg_gpa,all_avg_score,all_avg_gpa;
             ds_score_load_by_student(s->userid,scores,&count);
             if(count==0){printf("\n  暂无成绩数据。\n");}
             else{
-                for(i=0;i<count;i++){struct Course c;score_arr[i]=scores[i].total_score;gpa_arr[i]=scores[i].gpa;if(ds_course_find_by_id(scores[i].course_id,&c))credit_arr[i]=c.credit;else credit_arr[i]=0.0f;}
-                avg_score=calc_weighted_avg(score_arr,credit_arr,count);avg_gpa=calc_weighted_gpa(gpa_arr,credit_arr,count);
-                printf("\n  ====== 成绩统计分析 ======\n\n  已出成绩:%d门  加权平均分:%.1f  加权平均绩点:%.2f\n\n  %-8s %-14s %-4s %-6s %-6s\n  ------------------------------------\n",count,avg_score,avg_gpa,"课程号","名称","学分","总评","绩点");
-                for(i=0;i<count;i++){struct Course c;char cname[32];strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c))strcpy(cname,c.name);printf("  %-8s %-14s %-4.1f %-6.1f %-6.2f\n",scores[i].course_id,cname,credit_arr[i],scores[i].total_score,scores[i].gpa);}
+                for(i=0;i<count;i++){struct Course c;if(ds_course_find_by_id(scores[i].course_id,&c)){
+                    all_score_arr[all_cnt]=scores[i].total_score;all_gpa_arr[all_cnt]=scores[i].gpa;all_credit_arr[all_cnt]=c.credit;all_cnt++;
+                    if(c.type==COURSE_TYPE_REQUIRED){req_score_arr[req_cnt]=scores[i].total_score;req_gpa_arr[req_cnt]=scores[i].gpa;req_credit_arr[req_cnt]=c.credit;req_cnt++;}
+                }}
+                all_avg_score=calc_weighted_avg(all_score_arr,all_credit_arr,all_cnt);all_avg_gpa=calc_weighted_gpa(all_gpa_arr,all_credit_arr,all_cnt);
+                printf("\n  ====== 成绩统计分析 ======\n");
+                if(req_cnt>0){req_avg_score=calc_weighted_avg(req_score_arr,req_credit_arr,req_cnt);req_avg_gpa=calc_weighted_gpa(req_gpa_arr,req_credit_arr,req_cnt);printf("\n  必修课程(%d门): 加权平均分:%.1f  加权平均绩点:%.2f\n",req_cnt,req_avg_score,req_avg_gpa);}
+                printf("  全部课程(%d门): 加权平均分:%.1f  加权平均绩点:%.2f\n",all_cnt,all_avg_score,all_avg_gpa);
+                printf("\n  %-4s %-8s %-14s %-4s %-6s %-6s\n  ----------------------------------------------------\n","类型","课程号","名称","学分","总评","绩点");
+                for(i=0;i<count;i++){struct Course c;char cname[32];const char* type_str;strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c)){strcpy(cname,c.name);type_str=(c.type==COURSE_TYPE_REQUIRED)?"必修":"选修";}else type_str="?";printf("  %-4s %-8s %-14s %-4.1f %-6.1f %-6.2f\n",type_str,scores[i].course_id,cname,c.credit,scores[i].total_score,scores[i].gpa);}
             }
             printf("\n"); pause_and_continue();
         }
     }
 }
 
-/* AI智能学习助手 */
+/*AI智能学习助手*/
 static void sub_ai_analysis(struct Session* s)
 {
     char reply[4096];
@@ -212,7 +230,7 @@ static void sub_ai_analysis(struct Session* s)
     printf("\n"); pause_and_continue();
 }
 
-/* 智能选课助手 */
+/*智能选课助手*/
 static void sub_ai_select(struct Session* s)
 {
     char interests[256], future_plan[256], reply[4096];
@@ -227,7 +245,7 @@ static void sub_ai_select(struct Session* s)
     printf("\n"); pause_and_continue();
 }
 
-/* 学生主菜单 */
+/*学生主菜单*/
 void student_menu(struct Session* session)
 {
     int ch;
