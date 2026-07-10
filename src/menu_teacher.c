@@ -266,7 +266,8 @@ static void sub_grade_mgr(struct Session* s)
                             {float sum=0,max_s=0,min_s=100;int pass=0,exc=0,good=0,mid=0,fail=0;
                             for(si=0;si<score_count;si++){
                                 float s=view[si].total_score;sum+=s;
-                                if(s>max_s)max_s=s; if(s<min_s)min_s=s;
+                                if(s>max_s)max_s=s;
+                                if(s<min_s)min_s=s;
                                 if(s>=90)exc++;else if(s>=80)good++;else if(s>=70)mid++;else if(s>=60)pass++;else fail++;
                             }
                             printf("\n  --- 统计 ---\n  人数:%d  最高:%.1f  最低:%.1f  平均:%.1f  及格率:%.1f%%\n",score_count,max_s,min_s,sum/score_count,100.0f*(exc+good+mid+pass)/score_count);}

@@ -522,7 +522,7 @@ static void sub_sys_config(struct Session* s)
         } else if(ch==4) {
             struct SystemConfig cfg; char buf[128];
             ds_config_load(&cfg);
-            printf("\n  当前API Key: %s\n", (strlen(cfg.api_key)>0)?cfg.api_key:"(未设置)");
+            {int klen=strlen(cfg.api_key);if(klen>6){printf("\n  当前API Key: %.2s****%s\n",cfg.api_key,cfg.api_key+klen-4);}else if(klen>0){printf("\n  当前API Key: ****\n");}else{printf("\n  当前API Key: (未设置)\n");}}
             printf("  新API Key(回车保留): ");
             if(_isatty(_fileno(stdin))){int idx=0;char c;while(1){c=getch();if(c=='\r'||c=='\n'){buf[idx]='\0';printf("\n");break;}if(c=='\b'||c==127){if(idx>0){idx--;printf("\b \b");}}else if(idx<127){buf[idx]=c;idx++;printf("*");}}}
             else{fgets(buf,sizeof(buf),stdin);buf[strcspn(buf,"\n")]='\0';}

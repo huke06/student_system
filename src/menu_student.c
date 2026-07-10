@@ -176,7 +176,7 @@ static void sub_grade_query(struct Session* s)
                 printf("\n  === 已出成绩（共 %d 门） ===\n\n",count);
                 printf("  %-8s %-16s %-6s %-6s %-6s %s\n","课程号","名称","平时","期末","总评","绩点");
                 printf("  -----------------------------------------------------\n");
-                for(i=0;i<count;i++){struct Course c;char cname[32];strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c))strcpy(cname,c.name);printf("  %-8s %-16s %-6.1f %-6.1f %-6.1f %.2f\n",scores[i].course_id,cname,scores[i].daily_score,scores[i].final_score,scores[i].total_score,scores[i].gpa);}
+                for(i=0;i<count;i++){struct Course c;char cname[102];strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c))strcpy(cname,c.name);printf("  %-8s %-16s %-6.1f %-6.1f %-6.1f %.2f\n",scores[i].course_id,cname,scores[i].daily_score,scores[i].final_score,scores[i].total_score,scores[i].gpa);}
             }
             printf("\n"); pause_and_continue();
         } else if(ch==2) {
@@ -187,7 +187,7 @@ static void sub_grade_query(struct Session* s)
                 printf("\n  === 已出成绩课程 ===\n\n");
                 printf("  %-4s %-8s %-20s %-6s %-6s\n","编号","课程号","课程名称","总评","绩点");
                 printf("  ------------------------------------------\n");
-                for(i=0;i<count;i++){struct Course c;char cname[32];strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c))strcpy(cname,c.name);printf("  %-4d %-8s %-20s %-6.1f %-6.2f\n",i+1,scores[i].course_id,cname,scores[i].total_score,scores[i].gpa);}
+                for(i=0;i<count;i++){struct Course c;char cname[102];strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c))strcpy(cname,c.name);printf("  %-4d %-8s %-20s %-6.1f %-6.2f\n",i+1,scores[i].course_id,cname,scores[i].total_score,scores[i].gpa);}
                 printf("\n");
                 {int cno=get_choice("  请选择课程编号(0取消): ",0,count);
                 if(cno>0){struct Score* sc=&scores[cno-1];struct Course c;ds_course_find_by_id(sc->course_id,&c);printf("\n  === 成绩明细 ===\n\n  课程:%s(%s)  学分:%.1f\n  平时:%.1f(占比%.1f)  期末:%.1f(占比%.1f)\n  总评:%.1f  绩点:%.2f  录入:%s\n",sc->course_id,c.name,c.credit,sc->daily_score,c.daily_ratio,sc->final_score,c.final_ratio,sc->total_score,sc->gpa,sc->record_time);}}
@@ -211,7 +211,7 @@ static void sub_grade_query(struct Session* s)
                 if(req_cnt>0){req_avg_score=calc_weighted_avg(req_score_arr,req_credit_arr,req_cnt);req_avg_gpa=calc_weighted_gpa(req_gpa_arr,req_credit_arr,req_cnt);printf("\n  必修课程(%d门): 加权平均分:%.1f  加权平均绩点:%.2f\n",req_cnt,req_avg_score,req_avg_gpa);}
                 printf("  全部课程(%d门): 加权平均分:%.1f  加权平均绩点:%.2f\n",all_cnt,all_avg_score,all_avg_gpa);
                 printf("\n  %-4s %-8s %-14s %-4s %-6s %-6s\n  ----------------------------------------------------\n","类型","课程号","名称","学分","总评","绩点");
-                for(i=0;i<count;i++){struct Course c;char cname[32];const char* type_str;strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c)){strcpy(cname,c.name);type_str=(c.type==COURSE_TYPE_REQUIRED)?"必修":"选修";}else type_str="?";printf("  %-4s %-8s %-14s %-4.1f %-6.1f %-6.2f\n",type_str,scores[i].course_id,cname,c.credit,scores[i].total_score,scores[i].gpa);}
+                for(i=0;i<count;i++){struct Course c;char cname[102];const char* type_str;strcpy(cname,scores[i].course_id);if(ds_course_find_by_id(scores[i].course_id,&c)){strcpy(cname,c.name);type_str=(c.type==COURSE_TYPE_REQUIRED)?"必修":"选修";}else type_str="?";printf("  %-4s %-8s %-14s %-4.1f %-6.1f %-6.2f\n",type_str,scores[i].course_id,cname,c.credit,scores[i].total_score,scores[i].gpa);}
             }
             printf("\n"); pause_and_continue();
         }
@@ -221,7 +221,7 @@ static void sub_grade_query(struct Session* s)
 /*AI智能学习助手*/
 static void sub_ai_analysis(struct Session* s)
 {
-    char reply[4096];
+    char reply[32768];
     print_header("AI智能学习助手");
     printf("  当前用户: %s (学生)\n\n", s->username);
     printf("  正在调用 AI 分析您的成绩数据，请稍候...\n\n");
@@ -233,7 +233,7 @@ static void sub_ai_analysis(struct Session* s)
 /*智能选课助手*/
 static void sub_ai_select(struct Session* s)
 {
-    char interests[256], future_plan[256], reply[4096];
+    char interests[256], future_plan[256], reply[16384];
     print_header("智能选课助手");
     printf("  当前用户: %s (学生)\n\n", s->username);
     printf("  根据您的专业、兴趣和未来规划智能推荐课程。\n\n");

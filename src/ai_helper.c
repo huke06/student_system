@@ -54,8 +54,8 @@ int ai_call(const char* system_prompt, const char* user_message,
     FILE* fp;
     char* esc_sys;
     char* esc_usr;
-    char cmd[1024];
-    char line[2048];
+    char cmd[2048];
+    char line[8192];
     char api_key[64];
     struct SystemConfig cfg;
     int found;
@@ -65,7 +65,10 @@ int ai_call(const char* system_prompt, const char* user_message,
     /*从配置读取API Key*/
     api_key[0]='\0';
     if(ds_config_load(&cfg)) strcpy(api_key, cfg.api_key);
-    if(strlen(api_key)==0) return 0;
+    if(strlen(api_key)==0) {
+        strcpy(reply, "API Key未配置，请联系管理员在系统配置中设置。");
+        return 0;
+    }
 
     /*初始化为空*/
     reply[0]='\0';
@@ -94,7 +97,7 @@ int ai_call(const char* system_prompt, const char* user_message,
     fprintf(fp, "{\"role\":\"system\",\"content\":\"%s\"},", esc_sys);
     fprintf(fp, "{\"role\":\"user\",\"content\":\"%s\"}", esc_usr);
     fprintf(fp, "],");
-    fprintf(fp, "\"max_tokens\":1500,");
+    fprintf(fp, "\"max_tokens\":8192,");
     fprintf(fp, "\"temperature\":0.7");
     fprintf(fp, "}\n");
 
@@ -102,110 +105,103 @@ int ai_call(const char* system_prompt, const char* user_message,
     free(esc_sys);
     free(esc_usr);
 
-    /*调用curl发送请求*/
+    /*确保JSON文件已写入磁盘*/
+    fflush(NULL);
+
+    /*调用curl发送请求，stderr输出到ai_err.txt便于诊断*/
     sprintf(cmd,
-        "curl -s -X POST \"%s\" "
+        "curl -s --connect-timeout 15 --max-time 60 -X POST \"%s\" "
         "-H \"Content-Type: application/json\" "
         "-H \"Authorization: Bearer %s\" "
-        "-d @%s -o %s",
+        "-d @%s -o %s 2>data/ai_err.txt",
         API_URL, api_key, REQ_FILE, RESP_FILE);
 
     system(cmd);
 
     /*读取响应文件,提取content字段*/
     fp=fopen(RESP_FILE, "r");
-    if(fp==NULL) return 0;
+    if(fp==NULL) {
+        /*尝试读取curl stderr诊断信息*/
+        {FILE* efp; efp=fopen("data/ai_err.txt","r");
+        if(efp!=NULL){long esize;fseek(efp,0,SEEK_END);esize=ftell(efp);rewind(efp);
+        if(esize>0&&esize<max_len-1){fread(reply,1,esize,efp);reply[esize]='\0';}
+        else{strcpy(reply,"API响应异常，请稍后重试。");}
+        fclose(efp);}
+        else{strcpy(reply,"API响应异常，请稍后重试。");}}
+        return 0;
+    }
 
     found=0;
     while(fgets(line, sizeof(line), fp)!=NULL) {
         char* p;
-
-        /*查找 "content":" 标记*/
         p=strstr(line, "\"content\":\"");
         if(p!=NULL) {
             int ri;
-            p+=11; /* 跳过 "content":" */
-
+            p+=11;
             ri=0;
             while(*p!='\0' && ri<max_len-1) {
-                /*遇到 \" 表示字段结束，但可能是 \\" 即转义引号*/
-                if(p[0]=='\\' && p[1]=='\"') {
-                    /*转义引号 → 还原为 "*/
-                    reply[ri++]='"';
-                    p+=2;
-                    continue;
-                }
-                if(p[0]=='\\' && p[1]=='n') {
-                    reply[ri++]='\n';
-                    p+=2;
-                    continue;
-                }
-                if(p[0]=='\\' && p[1]=='\\') {
-                    reply[ri++]='\\';
-                    p+=2;
-                    continue;
-                }
-                if(p[0]=='\"') {
-                    /*真正的字符串结束*/
-                    break;
-                }
-                reply[ri++]=*p;
-                p++;
+                if(p[0]=='\\' && p[1]=='\"') { reply[ri++]='"'; p+=2; continue; }
+                if(p[0]=='\\' && p[1]=='n') { reply[ri++]='\n'; p+=2; continue; }
+                if(p[0]=='\\' && p[1]=='\\') { reply[ri++]='\\'; p+=2; continue; }
+                if(p[0]=='\"') break;
+                reply[ri++]=*p; p++;
             }
             reply[ri]='\0';
-
             if(strlen(reply)>0) found=1;
-            /*不break，继续读可能后面还有content（有些响应分多行）*/
         }
     }
     fclose(fp);
 
-    /*如果通过逐行解析没找到，尝试用更简单的方式：读整个文件查找*/
+    /*回退方案：读整个响应文件查找content*/
     if(!found) {
-        long fsize;
-        char* fbuf;
-
+        long fsize; char* fbuf;
         fp=fopen(RESP_FILE, "r");
         if(fp!=NULL) {
-            fseek(fp, 0, SEEK_END);
-            fsize=ftell(fp);
-            rewind(fp);
-            if(fsize>0 && fsize<100000) {
+            fseek(fp, 0, SEEK_END); fsize=ftell(fp); rewind(fp);
+            if(fsize>0 && fsize<500000) {
                 fbuf=(char*)malloc(fsize+1);
                 if(fbuf!=NULL) {
-                    fread(fbuf, 1, fsize, fp);
-                    fbuf[fsize]='\0';
-
-                    /*查找 "content":"*/
-                    {
-                        char* p;
-                        p=strstr(fbuf, "\"content\":\"");
-                        if(p!=NULL) {
-                            int ri;
-                            p+=11;
-                            ri=0;
-                            while(*p!='\0' && ri<max_len-1) {
-                                if(p[0]=='\\' && p[1]=='\"') {
-                                    reply[ri++]='"'; p+=2; continue;
-                                }
-                                if(p[0]=='\\' && p[1]=='n') {
-                                    reply[ri++]='\n'; p+=2; continue;
-                                }
-                                if(p[0]=='\\' && p[1]=='\\') {
-                                    reply[ri++]='\\'; p+=2; continue;
-                                }
-                                if(p[0]=='\"') break;
-                                reply[ri++]=*p; p++;
-                            }
-                            reply[ri]='\0';
-                            found=1;
-                        }
+                    fread(fbuf, 1, fsize, fp); fbuf[fsize]='\0';
+                    {char* p; p=strstr(fbuf, "\"content\":\"");
+                    if(p!=NULL){int ri; p+=11; ri=0;
+                    while(*p!='\0' && ri<max_len-1) {
+                        if(p[0]=='\\' && p[1]=='\"') { reply[ri++]='"'; p+=2; continue; }
+                        if(p[0]=='\\' && p[1]=='n') { reply[ri++]='\n'; p+=2; continue; }
+                        if(p[0]=='\\' && p[1]=='\\') { reply[ri++]='\\'; p+=2; continue; }
+                        if(p[0]=='\"') break;
+                        reply[ri++]=*p; p++;
                     }
+                    reply[ri]='\0'; found=1;}}
                     free(fbuf);
                 }
             }
             fclose(fp);
         }
+    }
+
+    /*提取API错误信息*/
+    if(!found) {
+        fp=fopen(RESP_FILE, "r");
+        if(fp!=NULL) {
+            while(fgets(line, sizeof(line), fp)!=NULL) {
+                char* p; p=strstr(line, "\"message\":\"");
+                if(p!=NULL) {int ri; p+=11; ri=0;
+                while(*p!='\0' && ri<max_len-1) {
+                    if(p[0]=='\\' && p[1]=='\"') { reply[ri++]='"'; p+=2; continue; }
+                    if(p[0]=='\\' && p[1]=='n') { reply[ri++]='\n'; p+=2; continue; }
+                    if(p[0]=='\"') break;
+                    reply[ri++]=*p; p++;
+                }
+                reply[ri]='\0';
+                if(strlen(reply)>0) { fclose(fp); return 0; }}
+            }
+            fclose(fp);
+        }
+        /*最后兜底：显示curl的stderr*/
+        {FILE* efp; efp=fopen("data/ai_err.txt","r");
+        if(efp!=NULL){long esize;fseek(efp,0,SEEK_END);esize=ftell(efp);rewind(efp);
+        if(esize>0&&esize<max_len-1){fread(reply,1,esize,efp);reply[esize]='\0';found=0;}
+        fclose(efp);}}
     }
 
     return found ? 1 : 0;
@@ -220,10 +216,10 @@ int ai_course_recommend(const char* student_id,
     struct Student st;
     struct Course courses[MAX_COURSES];
     int count, i;
-    char user_msg[4096];
-    char course_info[3072];
+    char user_msg[16384];
+    char course_info[12288];
     char sys_prompt[512];
-    int offset;
+    int offset, sent;
 
     /*获取学生信息*/
     if(!ds_student_find_by_id(student_id, &st)) {
@@ -238,59 +234,53 @@ int ai_course_recommend(const char* student_id,
         return 0;
     }
 
-    /*构建课程信息字符串（仅包含匹配学生专业的课程）*/
+    /*构建课程信息（仅选课中+匹配专业，最多15门）*/
     course_info[0]='\0';
-    offset=0;
-    for(i=0; i<count; i++) {
-        char buf[1024];
+    offset=0; sent=0;
+    for(i=0; i<count && sent<15; i++) {
+        char buf[512];
+        struct Teacher t; char tname[22];
         const char* type_str;
-        const char* status_str;
 
-        /*只推荐适用该学生专业的课程*/
+        if(courses[i].status!=COURSE_STATUS_SELECT) continue;
         if(strstr(courses[i].majors, st.major)==NULL) continue;
 
-        if(courses[i].type==COURSE_TYPE_REQUIRED) type_str="必修";
-        else type_str="选修";
+        if(ds_teacher_find_by_id(courses[i].teacher_id,&t)) strcpy(tname,t.name);
+        else strcpy(tname, courses[i].teacher_id);
 
-        if(courses[i].status==COURSE_STATUS_DRAFT) status_str="未发布";
-        else if(courses[i].status==COURSE_STATUS_SELECT) status_str="选课中";
-        else if(courses[i].status==COURSE_STATUS_CLOSED) status_str="已结课";
-        else status_str="?";
+        type_str=(courses[i].type==COURSE_TYPE_REQUIRED)?"必修":"选修";
 
-        sprintf(buf,
-            "%d. 课程号:%s 名称:%s 类型:%s 学分:%.1f 教师:%s\n"
-            "   上课时段:%s 教学大纲:%s 状态:%s\n",
-            i+1, courses[i].id, courses[i].name, type_str, courses[i].credit,
-            courses[i].teacher_id, courses[i].schedule,
-            courses[i].syllabus, status_str);
+        sprintf(buf, "%d. [%s] %s 学分:%.1f 教师:%s 时段:%s\n",
+            sent+1, type_str, courses[i].name, courses[i].credit,
+            tname, courses[i].schedule);
 
-        if(offset+strlen(buf) < (int)sizeof(course_info)-10) {
+        if(offset+(int)strlen(buf) < (int)sizeof(course_info)-10) {
             strcat(course_info, buf);
             offset+=strlen(buf);
         }
+        sent++;
+    }
+
+    if(sent==0) {
+        strcpy(reply, "当前没有适合你专业的可选课程。");
+        return 0;
     }
 
     /*构建用户消息*/
-    sprintf(user_msg,
-        "学生信息：\n"
-        "- 专业：%s\n"
-        "- 兴趣：%s\n"
-        "- 未来规划：%s\n\n"
-        "全部课程列表：\n%s\n\n"
-        "请根据以上信息，为该学生推荐3-5门最合适的课程，"
-        "推荐时请综合考虑学生的专业相关性、兴趣爱好和未来规划。"
-        "对每门推荐课程简要说明推荐理由（1-2句话即可）。",
+    snprintf(user_msg, sizeof(user_msg),
+        "学生: 专业-%s 兴趣-%s 规划-%s\n\n"
+        "可选课程(共%d门，仅能从下方列表中推荐):\n%s\n"
+        "请从以上%d门课程中挑选最合适的推荐，每门一句话理由。"
+        "严禁推荐列表之外的课程。不用Markdown。",
         st.major,
-        (interests!=NULL && strlen(interests)>0) ? interests : "未填写",
-        (future_plan!=NULL && strlen(future_plan)>0) ? future_plan : "未填写",
-        course_info);
+        (interests!=NULL && strlen(interests)>0) ? interests : "未填",
+        (future_plan!=NULL && strlen(future_plan)>0) ? future_plan : "未填",
+        sent, course_info, sent);
 
     /*系统提示词*/
     strcpy(sys_prompt,
-        "你是一个大学教务系统的智能选课助手。你的任务是根据学生的专业背景、"
-        "兴趣爱好和未来规划，从课程列表中推荐最适合的课程。"
-        "推荐要具体、有针对性，说明推荐理由。用中文回复。"
-        "请使用纯文本格式回复，不要使用Markdown格式标记（如#、**、-、*等符号）。");
+        "你是大学教务选课助手。只能从用户提供的课程列表中推荐，"
+        "绝不编造列表之外的课程。用中文，纯文本，不用Markdown。");
 
     return ai_call(sys_prompt, user_msg, reply, max_len);
 }
@@ -302,10 +292,10 @@ int ai_grade_analysis(const char* student_id, char* reply, int max_len)
     struct Student st;
     struct Score scores[MAX_SCORES];
     int count, i;
-    char user_msg[4096];
-    char grade_info[3072];
+    char user_msg[16384];
+    char grade_info[12288];
     char sys_prompt[512];
-    int offset;
+    int offset, sent;
 
     /*获取学生信息*/
     if(!ds_student_find_by_id(student_id, &st)) {
@@ -316,58 +306,51 @@ int ai_grade_analysis(const char* student_id, char* reply, int max_len)
     /*获取成绩*/
     ds_score_load_by_student(student_id, scores, &count);
     if(count==0) {
-        sprintf(reply,
-            "学生 %s(%s) 目前没有已出成绩记录，无法进行AI分析。"
-            "请等待教师录入成绩后再使用此功能。",
-            st.id, st.name);
+        snprintf(reply, max_len,
+            "%s同学，你目前没有已出成绩记录，无法进行分析。",
+            st.name);
         return 0;
     }
 
-    /*构建成绩信息*/
+    /*构建成绩信息（紧凑格式）*/
     grade_info[0]='\0';
-    offset=0;
-    for(i=0; i<count; i++) {
+    offset=0; sent=0;
+    for(i=0; i<count && sent<50; i++) {
         struct Course c;
-        char buf[256];
-        char cname[32];
+        char buf[384];
+        char cname[102];
+        const char* type_str;
 
         strcpy(cname, scores[i].course_id);
         if(ds_course_find_by_id(scores[i].course_id, &c)) {
             strcpy(cname, c.name);
-        }
+            type_str=(c.type==COURSE_TYPE_REQUIRED)?"必修":"选修";
+        } else type_str="?";
 
-        sprintf(buf,
-            "%d. 课程:%s(%s) 平时:%.1f 期末:%.1f 总评:%.1f 绩点:%.2f\n",
-            i+1, scores[i].course_id, cname,
+        snprintf(buf, sizeof(buf),
+            "%d. [%s]%s 平时%.1f 期末%.1f 总评%.1f 绩点%.2f\n",
+            i+1, type_str, cname,
             scores[i].daily_score, scores[i].final_score,
             scores[i].total_score, scores[i].gpa);
 
-        if(offset+strlen(buf) < (int)sizeof(grade_info)-10) {
+        if(offset+(int)strlen(buf) < (int)sizeof(grade_info)-10) {
             strcat(grade_info, buf);
             offset+=strlen(buf);
         }
+        sent++;
     }
 
     /*构建用户消息*/
-    sprintf(user_msg,
-        "学生信息：\n"
-        "- 姓名：%s\n"
-        "- 学号：%s\n"
-        "- 专业：%s\n\n"
-        "成绩数据：\n%s\n\n"
-        "请对该学生的成绩进行全面分析。",
-        st.name, st.id, st.major, grade_info);
+    snprintf(user_msg, sizeof(user_msg),
+        "学生: %s 专业: %s\n\n成绩(%d门):\n%s\n"
+        "请分析:1.整体画像 2.优势 3.薄弱 4.建议。纯文本，不用Markdown。",
+        st.name, st.major, count, grade_info);
 
     /*系统提示词*/
     strcpy(sys_prompt,
-        "你是一个学习分析专家。请根据学生成绩数据进行深入分析，"
-        "输出以下四个方面的内容：\n"
-        "1. 成绩画像：整体学习表现概述\n"
-        "2. 优势学科：哪些课程表现突出\n"
-        "3. 薄弱环节：哪些课程需要加强\n"
-        "4. 学习建议：针对性的改进方案\n"
-        "用中文回复，语气积极鼓励。"
-        "请使用纯文本格式回复，不要使用Markdown格式标记（如#、**、-、*等符号）。");
+        "你是学业分析专家。根据成绩数据分析学生表现，"
+        "提供画像、优势、薄弱环节和改进建议。用中文，语气积极鼓励。"
+        "纯文本回复，不用Markdown符号。");
 
     return ai_call(sys_prompt, user_msg, reply, max_len);
 }

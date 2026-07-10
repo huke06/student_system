@@ -77,7 +77,7 @@ struct Admin {
 /*课程信息，课程号为主键*/
 struct Course {
     char id[MAX_ID_LEN+1];       /*课程号*/
-    char name[51];                /*课程名称*/
+    char name[101];               /*课程名称*/
     int type;                     /*0必修 1选修*/
     float credit;                 /*学分*/
     char teacher_id[7];           /*授课教师工号*/
