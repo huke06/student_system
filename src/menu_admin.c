@@ -298,7 +298,7 @@ static void sub_course_mgr(struct Session* s)
                 struct Course* c=&courses[i];
                 type_str=(c->type==COURSE_TYPE_REQUIRED)?"必修":"选修";
                 if(c->status==COURSE_STATUS_DRAFT) status_str="未发布"; else if(c->status==COURSE_STATUS_SELECT) status_str="选课中"; else if(c->status==COURSE_STATUS_CLOSED) status_str="已结课"; else status_str="?";
-                printf("  %-6s %-16s %-4s %-4.1f %-6s %2d/%-3d %-10s %s\n", c->id, c->name, type_str, c->credit, c->teacher_id, c->enrolled, c->max_students, c->schedule, status_str);
+                {struct Teacher t;char tn[22]="?";if(ds_teacher_find_by_id(c->teacher_id,&t))strcpy(tn,t.name);printf("  %-6s %-16s %-4s %-4.1f %-6s %2d/%-3d %-10s %s\n", c->id, c->name, type_str, c->credit, tn, c->enrolled, c->max_students, c->schedule, status_str);}
             }
             printf("\n"); pause_and_continue();
         } else if(ch==2) {
@@ -321,7 +321,7 @@ static void sub_course_mgr(struct Session* s)
                 if(!shown) { printf("  %-6s %-16s %-4s %-4s %-6s %-5s %-10s %s\n", "课程号","名称","类型","学分","教师","上限/已选","上课时段","状态"); printf("  --------------------------------------------------------------------------------\n"); shown=1; }
                 type_str=(c->type==COURSE_TYPE_REQUIRED)?"必修":"选修";
                 if(c->status==COURSE_STATUS_DRAFT) status_str="未发布"; else if(c->status==COURSE_STATUS_SELECT) status_str="选课中"; else if(c->status==COURSE_STATUS_CLOSED) status_str="已结课"; else status_str="?";
-                printf("  %-6s %-16s %-4s %-4.1f %-6s %2d/%-3d %-10s %s\n", c->id, c->name, type_str, c->credit, c->teacher_id, c->enrolled, c->max_students, c->schedule, status_str);
+                {struct Teacher t;char tn[22]="?";if(ds_teacher_find_by_id(c->teacher_id,&t))strcpy(tn,t.name);printf("  %-6s %-16s %-4s %-4.1f %-6s %2d/%-3d %-10s %s\n", c->id, c->name, type_str, c->credit, tn, c->enrolled, c->max_students, c->schedule, status_str);}
             }
             if(!shown) printf("  无匹配课程。\n");
             printf("\n"); pause_and_continue();
@@ -349,7 +349,7 @@ static void sub_course_mgr(struct Session* s)
             printf("\n  --- 删除课程 ---\n  请输入课程号: ");
             fgets(id,sizeof(id),stdin);id[strcspn(id,"\n")]='\0';str_trim(id);
             if(!ds_course_find_by_id(id,&c)){printf("\n  [提示] 未找到课程 %s\n",id);}
-            else{printf("\n  确认删除：课程号:%s  名称:%s  教师:%s\n  输入 y 确认: ",c.id,c.name,c.teacher_id);fgets(confirm,sizeof(confirm),stdin);confirm[strcspn(confirm,"\n")]='\0';
+            else{{struct Teacher t;char tn[22]="?";if(ds_teacher_find_by_id(c.teacher_id,&t))strcpy(tn,t.name);printf("\n  确认删除：课程号:%s  名称:%s  教师:%s\n  输入 y 确认: ",c.id,c.name,tn);}fgets(confirm,sizeof(confirm),stdin);confirm[strcspn(confirm,"\n")]='\0';
             if(strcmp(confirm,"y")==0||strcmp(confirm,"Y")==0){if(ds_course_delete(id))printf("\n  [成功] 已删除\n");}else printf("\n  已取消\n");}
             pause_and_continue();
         }
