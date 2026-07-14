@@ -30,4 +30,11 @@ int date_in_week_range(const char* date, const char* semester_start, int start_w
 void caesar_encrypt(const char* input, int shift, char* output);
 void caesar_decrypt(const char* input, int shift, char* output);
 
+/*控制台交互工具*/
+void print_header(const char* title);
+int get_choice(const char* prompt, int min, int max);
+void pause_and_continue(void);
+int pick_major(const char* label, char* out);
+int pick_majors_multi(const char* label, char* out);
+
 #endif /* UTILS_H */

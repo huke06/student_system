@@ -11,49 +11,13 @@
 #include "logger.h"
 #include "data_store.h"
 
-/*清屏并打印系统标题栏*/
-void print_header(const char* title)
-{
-    system("cls");
-    printf("========================================\n");
-    printf("        教务管理系统\n");
-    if(title!=NULL && strlen(title)>0) {
-        printf("        %s\n", title);
-    }
-    printf("========================================\n\n");
-}
-/*读取整数选项，带范围校验*/
-int get_choice(const char* prompt, int min, int max)
-{
-    int choice;
-    char buf[32];
-    while(1) {
-        printf("%s", prompt);
-        fgets(buf, sizeof(buf), stdin);
-        if(sscanf(buf, "%d", &choice)==1) {
-            if(choice>=min && choice<=max) {
-                return choice;
-            }
-        }
-        printf("  [提示] 请输入 %d~%d 之间的数字\n", min, max);
-    }
-}
-
-/*暂停，等待按回车*/
-void pause_and_continue(void)
-{
-    printf("\n按回车键继续...");
-    getchar();
-}
-/*
-  用户登录验证
-  role: 用户角色（由主菜单传入）
-  返回：1登录成功，0失败
-  框架阶段：密码"123456"验证通过
- */
+/*用户登录验证
+role: 用户角色（由主菜单传入）
+返回：1登录成功，0失败
+框架阶段：密码"123456"验证通过*/
 static int login_flow(struct Session* session, int role)
 {
-    char userid[32], pwd[32], hash[33];
+    char userid[32], pwd[32], hash[33];/*hash代表经过凯撒加密后的输出*/
     const char* role_name;
     if(role==ROLE_ADMIN) role_name="管理员";
     else if(role==ROLE_TEACHER) role_name="教师";
@@ -62,25 +26,26 @@ static int login_flow(struct Session* session, int role)
     printf("  登录身份: %s\n\n", role_name);
     printf("请输入账号: ");
     fgets(userid, sizeof(userid), stdin);
-    userid[strcspn(userid, "\n")]='\0';
+    userid[strcspn(userid, "\n")]='\0';/*截取换行符前的字符串*/
     str_trim(userid);
     /*读取密码：终端下用*号回显，管道下用fgets*/
     printf("请输入密码: ");
-    if(_isatty(_fileno(stdin))) {
-        /* 交互式终端：逐字读取，回显* */
+    if(_isatty(_fileno(stdin))) {/*判断是否在控制台窗口*/
+        /*交互式终端：逐字读取，回显**/
         int idx=0;
         char ch;
         while(1) {
-            ch=getch();
-            if(ch=='\r' || ch=='\n') {
-                pwd[idx]='\0';
+            ch=getch();/*不会自动打印到屏幕*/
+            if(ch=='\r' || ch=='\n') {/*换行符、enter键*/
+                pwd[idx]='\0';/*结束字符串*/
                 printf("\n");
                 break;
             }
-            if(ch=='\b' || ch==127) {
+            if(ch=='\b' || ch==127) {/*回车键*/
                 if(idx>0) {
                     idx--;
-                    printf("\b \b");
+                    printf("\b \b");/*\b：光标往左移一格；空格：覆盖掉原来打印的 *；
+                    再一个 \b：光标重新回到空位，等待下一次输入。视觉上就是星号消失，实现删除效果。*/
                 }
                 continue;
             }
@@ -130,7 +95,7 @@ static int login_flow(struct Session* session, int role)
             printf("\n  [错误] 账号或密码错误！\n");
             {
                 char log_user[128];
-                sprintf(log_user, "%s(%s)", role_name, userid);
+                sprintf(log_user, "%s(%s)", role_name, userid);/*按格式化规则拼接成一段字符串,存入log_user*/
                 log_write(LOG_TYPE_ERROR, log_user, "登录失败");
             }
             pause_and_continue();

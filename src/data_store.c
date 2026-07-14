@@ -132,8 +132,8 @@ static void _seed_config(void)
     FILE* fp;
     fp=fopen(FILE_CONFIG, "w");
     if(fp==NULL) return;
-    /*开学日期|选课开始|选课结束|强制开关|专业列表|api_key|*/
-    fprintf(fp, "2026-07-6|2026-07-6 08:00|2026-07-20 18:00|0|计算机科学与技术,汉语言,数学,美术||\n");
+    /*开学日期|专业列表|api_key|*/
+    fprintf(fp, "2026-07-6|计算机科学与技术,汉语言,数学,美术||\n");
     fclose(fp);
 }
 
@@ -1056,18 +1056,24 @@ int ds_score_update(int record_id, const struct Score* new_s)
 
 static int _parse_config(const char* line, struct SystemConfig* cfg)
 {
-    char forced_buf[8];
+    char dummy1[32], dummy2[32], dummy3[8];
     int ret;
 
-    /*开学日期|选课开始|选课结束|强制开关|专业列表|api_key|*/
+    /*格式: 开学日期|专业列表|api_key| （兼容旧版6字段格式）*/
+    ret=sscanf(line, "%[^|]|%[^|]|%[^|]|",
+        cfg->semester_start, cfg->majors, cfg->api_key);
+    if(ret>=2) {
+        if(ret==2) cfg->api_key[0]='\0';
+        return 1;
+    }
+    /*兼容旧版：开学日期|选课开始|选课结束|强制开关|专业列表|api_key|*/
     ret=sscanf(line, "%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|",
-        cfg->semester_start, cfg->select_start, cfg->select_end,
-        forced_buf, cfg->majors, cfg->api_key);
-    if(ret<5) return 0;
-    if(ret==5) cfg->api_key[0]='\0';
-
-    cfg->select_forced=atoi(forced_buf);
-    return 1;
+        cfg->semester_start, dummy1, dummy2, dummy3, cfg->majors, cfg->api_key);
+    if(ret>=5) {
+        if(ret==5) cfg->api_key[0]='\0';
+        return 1;
+    }
+    return 0;
 }
 
 int ds_config_load(struct SystemConfig* cfg)
@@ -1096,9 +1102,8 @@ int ds_config_save(const struct SystemConfig* cfg)
     fp=fopen(FILE_CONFIG, "w");
     if(fp==NULL) return 0;
 
-    fprintf(fp, "%s|%s|%s|%d|%s|%s|\n",
-        cfg->semester_start, cfg->select_start, cfg->select_end,
-        cfg->select_forced, cfg->majors, cfg->api_key);
+    fprintf(fp, "%s|%s|%s|\n",
+        cfg->semester_start, cfg->majors, cfg->api_key);
     fclose(fp);
     return 1;
 }
@@ -1108,11 +1113,9 @@ int ds_config_save(const struct SystemConfig* cfg)
 int ds_init(void)
 {
     int need_seed;
-
     /*检查 data 目录*/
     need_seed=0;
     if(!_file_exists(FILE_STUDENTS)) need_seed=1;
-
     if(need_seed) {
         /*创建 data 目录*/
         _make_dir(DATA_DIR);
@@ -1122,7 +1125,6 @@ int ds_init(void)
         _seed_admins();
         _seed_courses();
         _seed_config();
-
         /*创建空的选课和成绩文件*/
         {
             FILE* fp;
@@ -1131,10 +1133,8 @@ int ds_init(void)
             fp=fopen(FILE_SCORES, "w");
             if(fp!=NULL) fclose(fp);
         }
-
         log_write(LOG_TYPE_SYSTEM, "系统", "数据存储初始化完成，已写入种子数据");
         return 1;
     }
-
     return 1;
 }

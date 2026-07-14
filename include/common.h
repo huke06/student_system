@@ -120,9 +120,6 @@ struct Score {
 /*系统配置*/
 struct SystemConfig {
     char semester_start[11];      /*学期开学日期*/
-    char select_start[20];        /*选课开启时间*/
-    char select_end[20];          /*选课关闭时间*/
-    int select_forced;            /*强制开关:0自动 1开启 2关闭*/
     char majors[MAX_MAJORS_LEN+1];/*专业列表*/
     char api_key[64];             /*DeepSeek API Key*/
 };

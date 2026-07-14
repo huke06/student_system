@@ -17,7 +17,6 @@ static void get_now_str(char* out)
 {
     time_t t;
     struct tm* tm_info;
-
     time(&t);
     tm_info=localtime(&t);
     sprintf(out, "%04d-%02d-%02d %02d:%02d:%02d",
@@ -32,10 +31,9 @@ void log_write(int type, const char* user, const char* action)
 {
     FILE* fp;
     char now[32];
-
     get_now_str(now);
 
-    fp=fopen(LOG_FILE, "a");
+    fp=fopen(LOG_FILE, "a");/*追加模式*/
     if(fp==NULL) return;
 
     fprintf(fp, "[%s] [%s] %s | %s\n",

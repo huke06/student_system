@@ -10,116 +10,6 @@
 #include "data_store.h"
 #include "utils.h"
 
-/*从系统配置加载专业列表，展示并让用户单选，返回选中编号(0=手输)*/
-int pick_major(const char* label, char* majors_out)
-{
-    struct SystemConfig cfg;
-    char list[MAX_MAJORS_LEN+1];
-    char* token;
-    char* items[50];
-    int count, i, choice;
-
-    ds_config_load(&cfg);
-    strcpy(list, cfg.majors);
-
-    count=0;
-    token=strtok(list, ",");
-    while(token!=NULL && count<50) {
-        while(*token==' ') token++;
-        items[count]=token;
-        count++;
-        token=strtok(NULL, ",");
-    }
-
-    if(count==0) {
-        printf("\n  [提示] 专业列表为空，请先在系统配置中设置专业列表\n");
-        majors_out[0]='\0';
-        return 0;
-    }
-
-    printf("\n  可选%s:\n", label);
-    for(i=0; i<count; i++) printf("    %d. %s\n", i+1, items[i]);
-    printf("    0. 手动输入\n");
-
-    choice=get_choice("  请选择: ", 0, count);
-    if(choice==0) {
-        printf("  请输入%s: ", label);
-        fgets(majors_out, MAX_MAJORS_LEN, stdin);
-        majors_out[strcspn(majors_out, "\n")]='\0';
-        str_trim(majors_out);
-    } else {
-        strcpy(majors_out, items[choice-1]);
-    }
-    return choice;
-}
-
-/*专业多选器（用于课程适用专业），输出逗号分隔列表*/
-int pick_majors_multi(const char* label, char* out)
-{
-    struct SystemConfig cfg;
-    char list[MAX_MAJORS_LEN+1];
-    char* items[50];
-    int count, i, selected;
-    char input[256];
-    int picks[50];
-
-    ds_config_load(&cfg);
-    strcpy(list, cfg.majors);
-
-    count=0;
-    {
-        char* token;
-        token=strtok(list, ",");
-        while(token!=NULL && count<50) {
-            while(*token==' ') token++;
-            items[count]=token;
-            count++;
-            token=strtok(NULL, ",");
-        }
-    }
-
-    if(count==0) {
-        printf("\n  [提示] 专业列表为空\n");
-        out[0]='\0';
-        return 0;
-    }
-
-    printf("\n  可选%s（多选，编号逗号分隔，0=全选）:\n", label);
-    for(i=0; i<count; i++) printf("    %d. %s\n", i+1, items[i]);
-    printf("  请选择: ");
-    fgets(input, sizeof(input), stdin);
-    input[strcspn(input, "\n")]='\0';
-    str_trim(input);
-
-    if(strlen(input)==0 || strcmp(input,"0")==0) {
-        strcpy(out, cfg.majors);
-        return count;
-    }
-
-    memset(picks, 0, sizeof(picks));
-    {
-        char* token;
-        token=strtok(input, ", ， \t");
-        while(token!=NULL) {
-            int idx=atoi(token);
-            if(idx>=1 && idx<=count) picks[idx-1]=1;
-            token=strtok(NULL, ", ， \t");
-        }
-    }
-
-    out[0]='\0';
-    selected=0;
-    for(i=0; i<count; i++) {
-        if(picks[i]) {
-            if(selected>0) strcat(out, ",");
-            strcat(out, items[i]);
-            selected++;
-        }
-    }
-    if(selected==0) { strcpy(out, cfg.majors); return count; }
-    return selected;
-}
-
 /*学生账号管理*/
 static void sub_student_mgr(struct Session* s)
 {
@@ -180,7 +70,7 @@ static void sub_student_mgr(struct Session* s)
 
             printf("  姓名: "); fgets(buf, sizeof(buf), stdin); buf[strcspn(buf, "\n")]='\0'; str_trim(buf); strcpy(st.name, buf);
             printf("  性别(男/女): "); fgets(buf, sizeof(buf), stdin); buf[strcspn(buf, "\n")]='\0'; str_trim(buf); strcpy(st.gender, buf);
-            printf("  年级(如2024): "); fgets(buf, sizeof(buf), stdin); buf[strcspn(buf, "\n")]='\0'; str_trim(buf); strcpy(st.grade, buf);
+            printf("  年级(如2026): "); fgets(buf, sizeof(buf), stdin); buf[strcspn(buf, "\n")]='\0'; str_trim(buf); strcpy(st.grade, buf);
             pick_major("专业", st.major);
 
             while(1) {
